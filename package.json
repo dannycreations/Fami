@@ -1,0 +1,33 @@
+{
+	"name": "fami",
+	"version": "1.0.0",
+	"main": "dist/main.js",
+	"author": "dannycreations",
+	"license": "GPL-3.0",
+	"private": true,
+	"scripts": {
+		"start:pm2": "pm2 start . --stop-exit-codes 0",
+		"start:dev": "npm run clean && tsc-watch --onSuccess \"node .\"",
+		"build": "npm run clean && tsc",
+		"clean": "npm run clean:distfiles",
+		"clean:distfiles": "npx rimraf --glob \"dist\" \"*.tsbuildinfo\"",
+		"update": "npx npm-check-updates -u -x @octokit/rest,@types/node"
+	},
+	"dependencies": {
+		"@octokit/rest": "20.x",
+		"@vegapunk/core": "^1.0.22",
+		"@vegapunk/request": "^1.0.11",
+		"@vegapunk/utilities": "^1.0.17",
+		"dotenv": "^16.4.5",
+		"steam-totp": "^2.1.2",
+		"steam-user": "^5.2.0"
+	},
+	"devDependencies": {
+		"@sapphire/ts-config": "^5.0.1",
+		"@types/node": "20.x",
+		"@types/steam-totp": "^2.1.2",
+		"@types/steam-user": "^5.0.2",
+		"tsc-watch": "^6.2.0",
+		"typescript": "^5.6.2"
+	}
+}

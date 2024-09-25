@@ -1,0 +1,19 @@
+{
+	"refreshGames": 3600000,
+	"skipBannedGames": false,
+	"blacklistGameIds": [],
+	"users": [
+		{
+			"username": "",
+			"password": "",
+			"fetchFreeGames": true
+		},
+		{
+			"username": "",
+			"password": "",
+			"secret": "",
+			"whitelistGameIds": [],
+			"blacklistGameIds": []
+		}
+	]
+}
