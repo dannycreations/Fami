@@ -15,9 +15,9 @@
 	},
 	"dependencies": {
 		"@octokit/rest": "20.x",
-		"@vegapunk/core": "^1.0.22",
-		"@vegapunk/request": "^1.0.11",
-		"@vegapunk/utilities": "^1.0.17",
+		"@vegapunk/core": "^1.0.24",
+		"@vegapunk/request": "^1.0.12",
+		"@vegapunk/utilities": "^1.0.19",
 		"dotenv": "^16.4.5",
 		"steam-totp": "^2.1.2",
 		"steam-user": "^5.2.0"

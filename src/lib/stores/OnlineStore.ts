@@ -27,21 +27,19 @@ export class OnlineStore<T> extends DataStore<T> {
 		options = { ...this.options, ...options }
 
 		try {
-			const { data } = await this.client.repos.getContent({
-				owner: options.owner,
-				repo: options.repo,
-				ref: options.branch,
-				path: options.path,
-			})
+			const data = (
+				await this.client.repos.getContent({
+					owner: options.owner,
+					repo: options.repo,
+					ref: options.branch,
+					path: options.path,
+				})
+			).data as DataContext
 
 			const key = `${options.branch}/${options.path}`
-			// @ts-expect-error
-			const sha = data.sha
-			this.shaCache.set(key, sha)
+			this.shaCache.set(key, data.sha)
 
-			// @ts-expect-error
-			let content = data.content
-			content = Buffer.from(content, 'base64').toString()
+			const content = Buffer.from(data.content, 'base64').toString()
 			return parseJsonc<T>(content)
 		} catch (error) {
 			if ('response' in error) {
@@ -65,15 +63,17 @@ export class OnlineStore<T> extends DataStore<T> {
 				sha = this.shaCache.get(key)
 			}
 
-			const { data } = await this.client.repos.createOrUpdateFileContents({
-				owner: options.owner,
-				repo: options.repo,
-				ref: options.branch,
-				path: options.path,
-				content: options.content,
-				message: options.message ?? 'from_server',
-				sha,
-			})
+			const data = (
+				await this.client.repos.createOrUpdateFileContents({
+					owner: options.owner,
+					repo: options.repo,
+					ref: options.branch,
+					path: options.path,
+					content: options.content,
+					message: options.message ?? 'from_server',
+					sha,
+				})
+			).data
 
 			sha = data.content.sha
 			this.shaCache.set(key, sha)
@@ -102,4 +102,22 @@ export interface PullContext {
 export interface PushContext extends PullContext {
 	content: string
 	message?: string
+}
+
+interface DataContext {
+	type: 'dir' | 'file' | 'submodule' | 'symlink'
+	size: number
+	name: string
+	path: string
+	content?: string
+	sha: string
+	url: string
+	git_url: string | null
+	html_url: string | null
+	download_url: string | null
+	_links: {
+		git: string | null
+		html: string | null
+		self: string
+	}
 }

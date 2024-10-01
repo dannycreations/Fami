@@ -10,10 +10,6 @@ export class UserListener extends Listener {
 	}
 
 	public async run(user: SessionContext, domain: string | null, callback: (code: string) => void, lastCodeWrong: boolean) {
-		const client = this.container.client
-
-		clearTimeout(user.timeout)
-
 		if (lastCodeWrong) {
 			container.logger.info(`${user.username} Steam Guard wrong.`)
 			await sleep(10_000)
@@ -21,8 +17,6 @@ export class UserListener extends Listener {
 			if (user.isSteamGuard) return
 			user.isSteamGuard = true
 		}
-
-		user.timeout = setTimeout(() => client.login(user), 60_000)
 
 		container.logger.info(`${user.username} need Steam Guard.`)
 		if (typeof user.secret === 'string') {

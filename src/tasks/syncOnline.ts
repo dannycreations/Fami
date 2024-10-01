@@ -4,7 +4,7 @@ import { OnlineStore } from '../lib/stores/OnlineStore'
 
 export class UserTask extends Task {
 	public constructor(context: Task.LoaderContext) {
-		super(context, { delay: 10_000 })
+		super(context, { delay: 10_000, ref: true })
 	}
 
 	public override async start() {

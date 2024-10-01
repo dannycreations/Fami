@@ -12,14 +12,14 @@ importers:
         specifier: 20.x
         version: 20.1.1
       '@vegapunk/core':
-        specifier: ^1.0.22
-        version: 1.0.22
+        specifier: ^1.0.24
+        version: 1.0.24
       '@vegapunk/request':
-        specifier: ^1.0.11
-        version: 1.0.11
+        specifier: ^1.0.12
+        version: 1.0.12
       '@vegapunk/utilities':
-        specifier: ^1.0.17
-        version: 1.0.17
+        specifier: ^1.0.19
+        version: 1.0.19
       dotenv:
         specifier: ^16.4.5
         version: 16.4.5
@@ -221,22 +221,29 @@ packages:
   '@types/steamid@2.0.3':
     resolution: {integrity: sha512-ozNMQViUYLU+NBN4v7X0bV1O8uTL1bA+WvfHtt9IKcydS4tyYKH7w1vq+xcPGWGL0PRhGtY7C1Zhaeyj2IsETw==}
 
-  '@vegapunk/core@1.0.22':
-    resolution: {integrity: sha512-kTrmq543V2cnIuoxlJ1/RLTAUutMcOk9tPJNcPc9ggMIythfyhS+FB3G/W8nzASl6s/YswjjaqhcQHyFq1Khrg==}
+  '@vegapunk/core@1.0.24':
+    resolution: {integrity: sha512-LwM4y1XuyF/04UHW/ZfGFJvXzIi5UT6les9FVXQL69LiPOZjMvTjXQgbO9IE5Poccv54w2CM3b08DOs1n3y8Rw==}
     engines: {node: 20.x, npm: 10.x}
 
-  '@vegapunk/logger@1.0.6':
-    resolution: {integrity: sha512-8ybwqCX1Sde8Q//LtU6YNSFpgJFQX4eqhJcmoBw8MMmMiv7NLCZuXVx9JPK1HGR2/n/G4NqkWlS1qXRVn1axqg==}
+  '@vegapunk/logger@1.0.7':
+    resolution: {integrity: sha512-4KhTYphInGDBv88DCW4o3cdHyvucdPZq2+C/IMtsFLv7Mx6gGFzuq1Z+rwsJPTMhUEpHsqDCQcRainSRoAMmgQ==}
     engines: {node: 20.x, npm: 10.x}
 
-  '@vegapunk/request@1.0.11':
-    resolution: {integrity: sha512-NA7hazMz1MJc3zh8ZsBT16+Cbt9jRU7z8lMJBanM6hhh23IItsuXhn8lqLaGAb3L3v4hCyHWKO7mqsyFjrMXVg==}
+  '@vegapunk/request@1.0.12':
+    resolution: {integrity: sha512-wt5lu/xNy7kOGpxk2y2eszD6imu+wszU4MKWZnRyNj7Xsz9AS07HlCKPOEbZHaLVP5/C2mufwJZ49qTRUixBjQ==}
     engines: {node: 20.x, npm: 10.x}
     bundledDependencies:
       - '@types/user-agents'
 
-  '@vegapunk/utilities@1.0.17':
-    resolution: {integrity: sha512-gVnwWsnbUfF1kZqjlUX6Lkwn0CRnI463QLef8Pp+i1l4eVdWhDVpsMm3bCeWFXaxrmu3l2KiLhx55jWx942X+g==}
+  '@vegapunk/utilities@1.0.18':
+    resolution: {integrity: sha512-OIZ49bhbilG2oWHNGkEJ2iQ4ed/A4qU4iLJjIVSjwOodBxowdnwvlMgDtMMJ11qFaQvH+itVDej12utQ4AGZ0A==}
+    engines: {node: 20.x, npm: 10.x}
+    bundledDependencies:
+      - '@types/humanize-duration'
+      - '@types/lodash'
+
+  '@vegapunk/utilities@1.0.19':
+    resolution: {integrity: sha512-NrwHYwnwNahQBwrrXw+lIp0yDslpZs/T6oMXF2fEf2vBcVkF/EYQTm2G4sYxw39d2PCKJoFYjq/dr0/qOiBSKA==}
     engines: {node: 20.x, npm: 10.x}
     bundledDependencies:
       - '@types/humanize-duration'
@@ -883,26 +890,36 @@ snapshots:
 
   '@types/steamid@2.0.3': {}
 
-  '@vegapunk/core@1.0.22':
+  '@vegapunk/core@1.0.24':
     dependencies:
       '@sapphire/pieces': 4.3.1
       '@sapphire/result': 2.6.6
-      '@vegapunk/logger': 1.0.6
-      '@vegapunk/utilities': 1.0.17
+      '@vegapunk/logger': 1.0.7
+      '@vegapunk/utilities': 1.0.19
 
-  '@vegapunk/logger@1.0.6':
+  '@vegapunk/logger@1.0.7':
     dependencies:
       moment-timezone: 0.5.45
       pino: 9.4.0
       pino-pretty: 11.2.2
 
-  '@vegapunk/request@1.0.11':
+  '@vegapunk/request@1.0.12':
     dependencies:
-      '@vegapunk/utilities': 1.0.17
+      '@vegapunk/utilities': 1.0.18
       got: 11.8.6
       user-agents: 1.1.325
 
-  '@vegapunk/utilities@1.0.17':
+  '@vegapunk/utilities@1.0.18':
+    dependencies:
+      '@sapphire/snowflake': 3.5.3
+      '@sapphire/utilities': 3.17.0
+      chalk: 4.1.2
+      humanize-duration: 3.32.1
+      jsonc-parser: 3.3.1
+      lodash: 4.17.21
+      nanoid: 3.3.7
+
+  '@vegapunk/utilities@1.0.19':
     dependencies:
       '@sapphire/snowflake': 3.5.3
       '@sapphire/utilities': 3.17.0

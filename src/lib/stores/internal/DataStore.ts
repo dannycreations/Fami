@@ -1,13 +1,17 @@
 import { _ } from '@vegapunk/utilities'
 
+const MinStoreDelay = 1000
+const MaxStoreDelay = 2147483647
+
 export abstract class DataStore<T extends DataStoreContext> {
 	public readonly dir: string
 	public readonly data = {} as T
 
 	public constructor(protected options: DataStoreOptions<T>) {
-		this.setDelay(options.delay)
-		Object.assign(this, { oldData: '' })
+		Object.assign(this, { _oldData: '' })
 		Object.assign(this.data, { __updatedAt: 0 })
+		Object.assign(options, { init: { ...options.init } })
+		this.setDelay(options.delay)
 	}
 
 	protected abstract _init(): Promise<void>
@@ -15,14 +19,12 @@ export abstract class DataStore<T extends DataStoreContext> {
 	protected abstract _writeFile(): Promise<void>
 
 	public setDelay(delay: number) {
-		if (typeof delay !== 'number') delay = 0
-		this.options.delay = Math.min(Math.max(Math.trunc(delay), 0), 2147483647)
-		return true
+		delay = typeof delay === 'number' ? delay : MinStoreDelay
+		this._delay = Math.min(Math.max(Math.trunc(delay), MinStoreDelay), MaxStoreDelay)
 	}
 
 	public clearData() {
 		Object.assign(this, { data: {} })
-		return true
 	}
 
 	public async readFile() {
@@ -30,40 +32,40 @@ export abstract class DataStore<T extends DataStoreContext> {
 
 		const json = await this._readFile()
 		Object.assign(this.data, _.defaultsDeep({}, json, this.data))
-		return true
 	}
 
-	public async writeFile(json: Partial<T> = this.data, force = false) {
+	public async writeFile(json: Partial<T> = this.data, isForce = false) {
 		await this.init()
 
 		Object.assign(this.data, _.defaultsDeep({}, json, this.data))
 
-		const newData = JSON.stringify(this.data)
-		if (Buffer.from(newData).equals(Buffer.from(this.oldData))) return false
-		if (this.data.__updatedAt + this.options.delay > Date.now() && !force) return false
-		this.data.__updatedAt = Date.now()
+		const isWaiting = this.data.__updatedAt + this._delay > Date.now()
+		if (isWaiting && !isForce) return
 
+		const newData = JSON.stringify(this.data)
+		const isEqual = Buffer.from(newData).equals(Buffer.from(this._oldData))
+		if (isWaiting && !isForce && isEqual) return
+
+		this.data.__updatedAt = Date.now()
 		await this._writeFile()
-		this.oldData = JSON.stringify(this.data)
-		return true
+		this._oldData = JSON.stringify(this.data)
 	}
 
 	private async init() {
-		if (this.lockInit) return
-		this.lockInit = true
+		if (this._lockInit) return
+		this._lockInit = true
 
-		this.options.init = { ...this.options.init }
 		await this._init()
-		this.options.init = undefined
 	}
 
-	private oldData: string
-	private lockInit: boolean
+	private _delay: number
+	private _oldData: string
+	private _lockInit: boolean
 }
 
 export interface DataStoreOptions<T> {
-	delay?: number
-	init?: T
+	readonly delay?: number
+	readonly init?: T
 }
 
 export interface DataStoreContext {

@@ -8,6 +8,7 @@ export class UserListener extends Listener {
 
 	public run(user: SessionContext, numBans: number, appids: number[]) {
 		const { config } = this.container.client
+
 		if (!numBans) return container.logger.info(`${user.username} has no VAC bans.`)
 		if (config.skipBannedGames) user.bannedGameIds = appids
 

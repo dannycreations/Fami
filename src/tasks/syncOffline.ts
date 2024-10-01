@@ -2,7 +2,7 @@ import { Task } from '@vegapunk/core'
 
 export class UserTask extends Task {
 	public constructor(context: Task.LoaderContext) {
-		super(context, { delay: 60_000 * 10 })
+		super(context, { delay: 60_000 * 10, ref: true })
 	}
 
 	public override start() {

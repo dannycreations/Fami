@@ -16,7 +16,6 @@ export class UserListener extends Listener {
 	public async run(user: SessionContext) {
 		const client = this.container.client
 
-		clearTimeout(user.timeout)
 		user.isSteamGuard = undefined
 		container.logger.info(chalk`{bold.yellow ${user.username} logged on!}`)
 		user.client.setPersona(SteamUser.EPersonaState.Online)
@@ -62,7 +61,7 @@ export class UserListener extends Listener {
 
 	private async createGameList(user: SessionContext, retry: number = 0): Promise<void> {
 		const client = this.container.client
-		if (client.isSessionExpired(user) || retry >= 3) return
+		if (client.isSessionExpired(user) || (retry >= 3 && user.ownedGameList.length)) return
 
 		const includeGameIds = _.union(client.config.whitelistGameIds, user.whitelistGameIds)
 		const excludeGameIds = _.union(
@@ -75,7 +74,7 @@ export class UserListener extends Listener {
 		let timeout: NodeJS.Timeout
 		try {
 			const userOwnedApps = await new Promise<{ apps: GameContext[] }>(async (resolve, reject) => {
-				timeout = setTimeout(() => reject('Request timed out'), 60_000)
+				timeout = setTimeout(() => reject('Request timed out'), 60_000).unref()
 				user.client
 					.getUserOwnedApps(user.client.steamID, {
 						// @ts-expect-error
@@ -97,10 +96,10 @@ export class UserListener extends Listener {
 
 			for (const game of includeGameLists) {
 				if (excludeGameIds.includes(game.appid)) continue
-				if (game.name.match(/(\sPTS|PTS\s)/gi)) continue
-				if (game.name.match(/(\sBeta|Beta\s)/gi)) continue
-				if (game.name.match(/(\sTest|Test\s)/gi)) continue
-				if (game.name.match(/(\sUnstable|Unstable\s)/gi)) continue
+				if (/(\sPTS|PTS\s)/i.test(game.name)) continue
+				if (/(\sBeta|Beta\s)/i.test(game.name)) continue
+				if (/(\sTest|Test\s)/i.test(game.name)) continue
+				if (/(\sUnstable|Unstable\s)/i.test(game.name)) continue
 
 				user.ownedGameList.push({ name: game.name, appid: game.appid })
 			}
@@ -126,7 +125,7 @@ export class UserListener extends Listener {
 		user.freeGameIds ??= []
 
 		user.lastLoop ??= 0
-		user.freeGameLength ?? 0
+		user.freeGameLength ??= 0
 
 		const excludeGameIds = _.union(
 			client.config.blacklistGameIds,
@@ -151,7 +150,7 @@ export class UserListener extends Listener {
 
 			const gameSearch = body.match(/(?<=data-ds-appid=")[^"]*/g)
 			if (gameSearch?.length) {
-				const parseResult = gameSearch.map((r) => parseInt(r))
+				const parseResult = gameSearch.map((r) => parseInt(r)).filter(Boolean)
 				for (const appid of parseResult) {
 					if (excludeGameIds.includes(appid)) continue
 					if (user.freeGameIds.includes(appid)) continue
@@ -187,7 +186,7 @@ export class UserListener extends Listener {
 				user.lastPage++
 			} else {
 				if (user.lastLoop >= 5) {
-					user.lastPage = undefined
+					user.lastPage = 1
 					user.freeGameIds = []
 					user.forceRequest = true
 				}
@@ -196,8 +195,8 @@ export class UserListener extends Listener {
 				user.freeGameLength = user.freeGameList.length
 			}
 
-			const luser = client.sessions.get(user.username)
-			await luser.store.writeFile({
+			const session = client.sessions.get(user.username)
+			await session.store.writeFile({
 				lastPage: user.lastPage,
 				freeGameList: user.freeGameList,
 				freeGameIds: user.freeGameIds,
@@ -220,28 +219,30 @@ export class UserListener extends Listener {
 		const takeGames = user.freeGameList.slice(0, 50)
 		const takeGameIds = takeGames.map((r) => r.appid)
 
-		try {
-			await user.client.requestFreeLicense(takeGameIds)
-		} catch (error) {
-			if (error.message !== 'Request timed out') {
-				container.logger.error(error, `Stage 3 ${user.username}, with reason: ${error.message}`)
+		if (takeGameIds.length) {
+			try {
+				await user.client.requestFreeLicense(takeGameIds)
+			} catch (error) {
+				if (error.message !== 'Request timed out') {
+					container.logger.error(error, `Stage 3 ${user.username}, with reason: ${error.message}`)
+				}
+
+				await sleep(10_000)
+				return this.requestFreeGameLicense(user, retry++)
 			}
 
-			await sleep(10_000)
-			return this.requestFreeGameLicense(user, retry++)
+			container.logger.info(`${user.username} has added ${takeGames.length}/${user.freeGameList.length}/${user.lastPage} new games.`)
+			_.pullAllBy(user.freeGameList, takeGames, 'appid')
 		}
 
-		container.logger.info(`${user.username} has added ${takeGames.length}/${user.freeGameList.length}/${user.lastPage} new games.`)
-		_.pullAllBy(user.freeGameList, takeGames, 'appid')
-
-		user.lastLoop = undefined
+		user.lastLoop = 0
 		if (user.forceRequest) {
-			user.forceRequest = undefined
-			user.freeGameLength = undefined
+			user.forceRequest = false
+			user.freeGameLength = 0
 		}
 
-		const luser = client.sessions.get(user.username)
-		await luser.store.writeFile({
+		const session = client.sessions.get(user.username)
+		await session.store.writeFile({
 			lastPage: user.lastPage,
 			freeGameList: user.freeGameList,
 			freeGameIds: user.freeGameIds,
