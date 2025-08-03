@@ -1,0 +1,12 @@
+{
+	"extends": ["@sapphire/ts-config", "@sapphire/ts-config/extra-strict", "@sapphire/ts-config/decorators"],
+	"compilerOptions": {
+		"outDir": "dist",
+		"skipLibCheck": true,
+		"stripInternal": true,
+		"removeComments": true,
+		"target": "esnext",
+		"moduleResolution": "nodenext"
+	},
+	"include": ["src"]
+}

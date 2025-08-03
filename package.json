@@ -1,0 +1,47 @@
+{
+  "name": "fami",
+  "version": "1.0.0",
+  "main": "dist/main.js",
+  "author": "dannycreations",
+  "license": "GPL",
+  "private": true,
+  "scripts": {
+    "start:pm2": "pm2 start . --stop-exit-codes 0",
+    "start:watch": "npm run clean && tsx watch src/main.ts",
+    "start:debug": "npm run build && node --inspect-brk .",
+    "build": "npm run clean && tsc",
+    "clean": "npx rimraf -g \"*.tsbuildinfo\" \"dist\"",
+    "clean:nodefiles": "npx rimraf -g \"*-lock*\" \"node_modules\"",
+    "update": "npx npm-check-updates -u -x @octokit/rest,@types/node"
+  },
+  "dependencies": {
+    "@octokit/rest": "20.x",
+    "@vegapunk/core": "^1.0.48",
+    "@vegapunk/request": "^1.0.39",
+    "@vegapunk/struct": "^1.0.12",
+    "@vegapunk/utilities": "^1.0.64",
+    "dotenv": "^17.2.1",
+    "steam-totp": "^2.1.2",
+    "steam-user": "^5.2.3",
+    "steamcommunity": "^3.49.0",
+    "tough-cookie": "^5.1.2"
+  },
+  "devDependencies": {
+    "@ianvs/prettier-plugin-sort-imports": "^4.5.1",
+    "@sapphire/ts-config": "^5.0.1",
+    "@types/node": "22.x",
+    "@types/steam-totp": "^2.1.2",
+    "@types/steam-user": "^5.1.0",
+    "@types/steamcommunity": "^3.43.8",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "protobufjs"
+    ]
+  },
+  "packageManager": "pnpm@10.14.0"
+}
