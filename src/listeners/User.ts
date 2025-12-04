@@ -5,7 +5,7 @@ import SteamUser from 'steam-user';
 
 import { Session } from '../lib/struct/Session';
 
-const OfflineState = [SteamUser.EPersonaState.Offline, SteamUser.EPersonaState.Invisible];
+const OFFLINE_STATE = [SteamUser.EPersonaState.Offline, SteamUser.EPersonaState.Invisible] as const;
 
 export class UserListener extends Listener<'user'> {
   public constructor(context: Listener.LoaderContext) {
@@ -16,34 +16,35 @@ export class UserListener extends Listener<'user'> {
   }
 
   private readonly runMutex = new Mutex();
-  public async run(session: Session, sid: NonNullable<SteamUser['steamID']>, user: Record<string, any>): Promise<void> {
-    const userID = sid.toString();
-    if (session.steamID === userID || typeof session.family[userID] !== 'number') {
+  public async run(session: Session, sid: NonNullable<SteamUser['steamID']>, user: UserStatus): Promise<void> {
+    const userId = sid.toString();
+    if (session.steamID === userId || typeof session.family[userId] !== 'number') {
       return;
     }
 
     const userPersona = user.persona_state ?? SteamUser.EPersonaState.Offline;
-    const isUserOffline = OfflineState.includes(userPersona);
+    const isUserOffline = OFFLINE_STATE.includes(userPersona);
 
     await this.runMutex.acquire();
     try {
-      if (session.enabled && !isUserOffline) {
-        session.enabled = false;
-        if (session.playing) {
-          session.playing = false;
-          session.client.gamesPlayed([]);
-        }
+      if (session.isEnabled && !isUserOffline) {
+        session.getState().setEnabled(false);
+        session.gamesPlayed([]);
 
-        session.client.setPersona(SteamUser.EPersonaState.Invisible);
         const playerName = user.player_name || 'FamilyMember';
         container.logger.info(chalk`{yellow ${session.username} sleeping, reason: ${playerName} online.}`);
       }
 
-      if (session.family[userID] === -1 || user.persona_state !== undefined) {
-        session.family[userID] = userPersona;
+      if (session.family[userId] === -1 || user.persona_state !== undefined) {
+        session.family[userId] = userPersona;
       }
     } finally {
       this.runMutex.release();
     }
   }
+}
+
+interface UserStatus {
+  readonly persona_state: number;
+  readonly player_name: string;
 }

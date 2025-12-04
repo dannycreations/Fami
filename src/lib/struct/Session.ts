@@ -1,62 +1,83 @@
 import { join } from 'node:path';
 import { container } from '@vegapunk/core';
 import { waitForConnection } from '@vegapunk/request';
-import { isObjectLike, uniqueId } from '@vegapunk/utilities/common';
+import { uniqueId } from '@vegapunk/utilities/common';
+import { SetProperty } from '@vegapunk/utilities/decorator';
+import { createStore } from '@vegapunk/utilities/strict';
 import SteamUser from 'steam-user';
 import SteamCommunity from 'steamcommunity';
 
 import { OfflineStore } from '../stores/OfflineStore';
 
+interface SessionState {
+  readonly logged: boolean;
+  readonly enabled: boolean;
+  readonly playing: boolean;
+  readonly setLogged: (logged: boolean) => void;
+  readonly setEnabled: (enabled: boolean) => void;
+  readonly setPlaying: (playing: boolean) => void;
+}
+
 export class Session {
-  public static readonly stores: Map<string, Session> = new Map();
-
   public static async login(user: UserContext): Promise<void> {
-    let session = Session.stores.get(user.username);
-    if (isObjectLike(session)) {
-      clearTimeout(session.timeout);
-      session.timeout = undefined;
-
-      session.logOff();
-      Session.stores.delete(user.username);
-    }
-
     await waitForConnection();
 
-    session = new Session(user);
-    session.timeout = setTimeout(() => this.login(user), 60_000);
-    Session.stores.set(user.username, session);
+    const session = new Session(user);
     await session.logOn();
   }
 
+  @SetProperty(true)
   public readonly steamID: string;
+  @SetProperty(true)
   public readonly username: string;
+  @SetProperty(true)
   public readonly password: string;
+  @SetProperty(true)
   public readonly secret: string;
   public readonly family: { [k: string]: number };
   public readonly fetchFreeGames: boolean;
-
-  public readonly sessionID: string;
-  public readonly web: SteamCommunity;
-  public readonly client: SteamUser;
-  public readonly stores: OfflineStore<Session>;
 
   public readonly ownedGameList: GameContext[] = [];
   public readonly blacklistGameIds: number[] = [];
   public readonly whitelistGameIds: number[] = [];
 
-  public enabled = false;
-  public playing = false;
+  public readonly sessionID: string;
+  @SetProperty(true)
+  public readonly web: SteamCommunity;
+  @SetProperty(true)
+  public readonly client: SteamUser;
+  @SetProperty(true)
+  public readonly store: OfflineStore<Session>;
+  @SetProperty(true)
+  private readonly state = createStore<SessionState>()((set) => ({
+    logged: false,
+    enabled: false,
+    playing: false,
 
-  public lastPage = 1;
-  public lastLoop = 0;
-  public freeGameLength = 0;
-  public forceRequest = false;
+    setLogged: (logged) => {
+      set({ logged });
+    },
+
+    setEnabled: (enabled) => {
+      set({ enabled });
+    },
+
+    setPlaying: (playing) => {
+      set({ playing });
+    },
+  }));
+
+  public lastPage: number = 1;
+  public lastLoop: number = 0;
+  public freeGameLength: number = 0;
+  public forceRegister: boolean = false;
   public freeGameIds: number[] = [];
   public bannedGameIds: number[] = [];
   public freeGameList: GameContext[] = [];
 
+  @SetProperty(true)
   public refreshToken?: string;
-  public timeout?: NodeJS.Timeout;
+  private timeout?: NodeJS.Timeout;
 
   public constructor(user: UserContext) {
     this.steamID = user.id;
@@ -67,46 +88,64 @@ export class Session {
     this.fetchFreeGames = user.fetchFreeGames;
 
     this.sessionID = uniqueId();
-    this.stores = new OfflineStore({
-      path: sessionDir(user.username),
+    this.store = new OfflineStore({
+      filePath: sessionDir(user.username),
       delay: 60_000 * 10,
-      watch: async () => {
-        return Promise.resolve(this.stores.data);
-      },
+      watch: () => this.store.data,
     });
     this.web = new SteamCommunity({ timeout: 10_000 });
     this.client = new SteamUser({
-      dataDirectory: this.stores.dir,
+      dataDirectory: this.store.dirPath,
       renewRefreshTokens: true,
       autoRelogin: false,
     });
 
     this.refreshToken = user.refreshToken;
+    this.timeout = setTimeout(() => {
+      this.logOff();
+      Session.login(user);
+    }, 60_000);
+  }
+
+  public get isEnabled(): boolean {
+    return this.state.getState().enabled;
+  }
+
+  public get isPlaying(): boolean {
+    return this.state.getState().playing;
   }
 
   public get isExpired(): boolean {
-    const session = Session.stores.get(this.username);
-    if (!session || session.sessionID !== this.sessionID) return true;
-    if (!session.isLogged || !this.isLogged) return true;
-    return false;
+    const { logged } = this.state.getState();
+    return !this.timeout && !logged;
+  }
+
+  public getState(): SessionState {
+    return this.state.getState();
   }
 
   public async logOn(): Promise<void> {
-    await this.stores.readFile();
-    Object.assign(this, this.stores.data);
+    await this.store.readFile();
+    Object.assign(this, this.store.data);
 
-    this.client.on('webSession', (_: string, cookies: string[]) => this.web.setCookies(cookies));
+    this.client.on('webSession', (_: string, cookies: string[]) => {
+      this.web.setCookies(cookies);
+    });
     container.stores.get('listeners').forEach((ev) => {
-      if (ev.emitter !== container.steam) return;
+      if (!Object.is(ev.emitter, container.steam)) {
+        return;
+      }
 
       this.client.on(ev.event as any, (...args: unknown[]) => {
-        if (!!this.timeout) {
+        if (this.isExpired) {
+          return;
+        }
+        if (ev.event === 'loggedOn' && this.timeout) {
+          this.state.getState().setLogged(true);
+        }
+        if (this.timeout) {
           clearTimeout(this.timeout);
           this.timeout = undefined;
-        }
-
-        if (ev.event === 'loggedOn') {
-          this.isLogged = true;
         }
 
         container.logger.trace(args, `${this.username} stream event ${String(ev.event)}.`);
@@ -114,46 +153,62 @@ export class Session {
       });
     });
 
-    const details = { logonID: this.sessionID } as any;
     if (typeof this.refreshToken === 'string') {
-      details.refreshToken = this.refreshToken;
+      this.client.logOn({ refreshToken: this.refreshToken });
       container.logger.info(`${this.username} trying logon using token.`);
     } else {
-      details.accountName = this.username;
-      details.password = this.password;
+      this.client.logOn({ accountName: this.username, password: this.password });
       container.logger.info(`${this.username} trying logon using credential.`);
     }
-
-    this.client.logOn(details);
   }
 
   public logOff(): void {
-    this.enabled = false;
-    this.isLogged = false;
+    if (this.timeout) {
+      clearTimeout(this.timeout);
+      this.timeout = undefined;
+    }
+
+    const { setLogged, setEnabled } = this.state.getState();
+    setLogged(false);
+    setEnabled(false);
+
+    this.store.dispose();
     this.client.logOff();
-    this.stores.dispose();
+    this.client.removeAllListeners();
+    this.web.removeAllListeners();
   }
 
-  private isLogged?: boolean;
+  public gamesPlayed(ids: number[]): void {
+    const hasIds = ids.length > 0;
+    if (!hasIds && !this.isPlaying) {
+      return;
+    }
+
+    this.state.getState().setPlaying(hasIds);
+
+    const { Online, Invisible } = SteamUser.EPersonaState;
+    this.client.setPersona(hasIds ? Online : Invisible);
+    this.client.gamesPlayed(ids);
+  }
 }
 
-function sessionDir(username: string) {
+function sessionDir(username: string): string {
   return join(process.cwd(), 'sessions', username, 'session.json');
 }
 
 export interface UserContext {
-  id: string;
-  username: string;
-  password: string;
-  secret: string;
-  family: string[];
-  fetchFreeGames: boolean;
-  whitelistGameIds: number[];
-  blacklistGameIds: number[];
-  refreshToken: string | undefined;
+  readonly id: string;
+  readonly username: string;
+  readonly password: string;
+  readonly secret: string;
+  readonly family?: string[];
+  readonly fetchFreeGames: boolean;
+  readonly whitelistGameIds?: number[];
+  readonly blacklistGameIds?: number[];
+  refreshToken?: string;
 }
 
 export interface GameContext {
-  name: string;
-  appid: number;
+  readonly name: string;
+  readonly appid: number;
 }

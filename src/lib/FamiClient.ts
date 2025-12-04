@@ -1,7 +1,8 @@
 import { EventEmitter } from 'node:events';
-import { container, Vegapunk } from '@vegapunk/core';
+import { container, Task, Vegapunk } from '@vegapunk/core';
+import { chalk, killApp } from '@vegapunk/utilities';
 import { waitUntil } from '@vegapunk/utilities/sleep';
-import { z } from '@vegapunk/utilities/strict';
+import { v } from '@vegapunk/utilities/strict';
 import SteamUser, { EResult } from 'steam-user';
 
 import { OnlineStore } from './stores/OnlineStore';
@@ -9,31 +10,31 @@ import { Session } from './struct/Session';
 
 import type { UserContext } from './struct/Session';
 
-const EnvSchema = z.object({
-  GITHUB_REPO: z.string().min(1),
-  GITHUB_OWNER: z.string().min(1),
-  GITHUB_PATH: z.string().min(1),
-  GITHUB_AUTH: z.string().min(1),
-});
+const EnvSchema = v.pipe(
+  v.object({
+    GITHUB_REPO: v.pipe(v.string(), v.minLength(1)),
+    GITHUB_OWNER: v.pipe(v.string(), v.minLength(1)),
+    GITHUB_FILE: v.pipe(v.string(), v.minLength(1)),
+    GITHUB_AUTH: v.pipe(v.string(), v.minLength(1)),
+  }),
+  v.readonly(),
+);
 
-export const env = EnvSchema.readonly().parse({
-  GITHUB_REPO: process.env.GITHUB_REPO,
-  GITHUB_OWNER: process.env.GITHUB_OWNER,
-  GITHUB_PATH: process.env.GITHUB_PATH,
-  GITHUB_AUTH: process.env.GITHUB_AUTH,
-});
+export const env = v.parse(EnvSchema, process.env);
 
 export class FamiClient extends Vegapunk {
+  private readonly onlineStores: OnlineStore<ConfigContext>;
+
   public constructor() {
     super();
 
     const steam = new EventEmitter();
-    Object.assign(container, { steam });
+    Object.assign(container, { steam } as typeof container);
 
     this.onlineStores = new OnlineStore<ConfigContext>({
       repo: env.GITHUB_REPO,
       owner: env.GITHUB_OWNER,
-      path: env.GITHUB_PATH,
+      file: env.GITHUB_FILE,
       auth: env.GITHUB_AUTH,
       init: { blacklistGameIds: [], whitelistGameIds: [] },
       delay: 60_000,
@@ -50,13 +51,31 @@ export class FamiClient extends Vegapunk {
 
     await waitUntil(() => !!this.config);
     await Promise.all(this.config.users.map(Session.login));
+
+    let lastCheckedDay: number | undefined = undefined;
+    await Task.createTask({
+      update: () => {
+        const currentDay = new Date().getDate();
+        if (lastCheckedDay === undefined) {
+          lastCheckedDay = currentDay;
+          return;
+        }
+        if (currentDay === lastCheckedDay) {
+          return;
+        }
+
+        lastCheckedDay = currentDay;
+        container.logger.info(chalk`{bold.yellow It's midnight time. Restarting app...}`);
+        container.client.destroy();
+      },
+      options: { name: 'midnight', delay: 10_000 },
+    });
   }
 
   public override async destroy(): Promise<void> {
-    process.exit(1);
+    super.destroy();
+    killApp();
   }
-
-  private readonly onlineStores: OnlineStore<ConfigContext>;
 }
 
 export interface ConfigContext {

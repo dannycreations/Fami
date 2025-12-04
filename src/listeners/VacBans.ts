@@ -2,7 +2,7 @@ import { container, Listener } from '@vegapunk/core';
 
 import { Session } from '../lib/struct/Session';
 
-export class UserListener extends Listener<'vacBans'> {
+export class VacBansListener extends Listener<'vacBans'> {
   public constructor(context: Listener.LoaderContext) {
     super(context, {
       emitter: container.steam,
@@ -16,8 +16,8 @@ export class UserListener extends Listener<'vacBans'> {
       return;
     }
 
-    const clientCfg = this.container.client.config;
-    if (clientCfg.skipBannedGames) {
+    const clientConfig = this.container.client.config;
+    if (clientConfig.skipBannedGames) {
       session.bannedGameIds = appids;
     }
 

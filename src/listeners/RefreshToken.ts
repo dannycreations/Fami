@@ -2,7 +2,7 @@ import { container, Listener } from '@vegapunk/core';
 
 import { Session } from '../lib/struct/Session';
 
-export class UserListener extends Listener<'refreshToken'> {
+export class RefreshTokenListener extends Listener<'refreshToken'> {
   public constructor(context: Listener.LoaderContext) {
     super(context, {
       emitter: container.steam,
@@ -11,8 +11,8 @@ export class UserListener extends Listener<'refreshToken'> {
   }
 
   public run(session: Session, refreshToken: string): void {
-    const clientCfg = this.container.client.config;
-    const userCfg = clientCfg.users.find((r) => r.username === session.username)!;
-    userCfg.refreshToken = refreshToken;
+    const clientConfig = this.container.client.config;
+    const userConfig = clientConfig.users.find((user) => user.username === session.username)!;
+    userConfig.refreshToken = refreshToken;
   }
 }

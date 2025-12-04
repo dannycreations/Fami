@@ -1,10 +1,11 @@
 import { container, Listener } from '@vegapunk/core';
 import { chalk } from '@vegapunk/utilities';
-import SteamUser from 'steam-user';
 
 import { Session } from '../lib/struct/Session';
 
-export class UserListener extends Listener<'disconnected'> {
+import type SteamUser from 'steam-user';
+
+export class DisconnectedListener extends Listener<'disconnected'> {
   public constructor(context: Listener.LoaderContext) {
     super(context, {
       emitter: container.steam,

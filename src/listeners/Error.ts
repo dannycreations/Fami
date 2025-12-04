@@ -3,11 +3,12 @@ import { waitForConnection } from '@vegapunk/request';
 import { chalk } from '@vegapunk/utilities';
 import { cloneDeep } from '@vegapunk/utilities/common';
 import { sleep } from '@vegapunk/utilities/sleep';
-import { EResult } from 'steam-user';
 
 import { Session } from '../lib/struct/Session';
 
-export class UserListener extends Listener<'error'> {
+import type { EResult } from 'steam-user';
+
+export class ErrorListener extends Listener<'error'> {
   public constructor(context: Listener.LoaderContext) {
     super(context, {
       emitter: container.steam,
@@ -16,14 +17,15 @@ export class UserListener extends Listener<'error'> {
   }
 
   public async run(session: Session, error: Error & { eresult: EResult }): Promise<void> {
-    const clientCfg = this.container.client.config;
-    const userCfg = cloneDeep(clientCfg.users.find((r) => r.username === session.username)!);
-    if (error.message === 'AccessDenied' && typeof session.refreshToken === 'string') {
+    const clientConfig = this.container.client.config;
+    const userConfig = cloneDeep(clientConfig.users.find((user) => user.username === session.username)!);
+
+    if (error.message === 'AccessDenied') {
       session.logOff();
-      userCfg.refreshToken = undefined;
+      userConfig.refreshToken = undefined;
     } else if (error.message === 'RateLimitExceeded') {
       session.logOff();
-      await sleep(clientCfg.refreshGames);
+      await sleep(clientConfig.refreshGames);
     } else if (['LoggedInElsewhere', 'LogonSessionReplaced'].includes(error.message)) {
       session.logOff();
       await sleep(60_000 * 10);
@@ -33,10 +35,10 @@ export class UserListener extends Listener<'error'> {
     }
 
     if (session.isExpired) {
-      container.logger.info(chalk`{yellow ${userCfg.username} relogged, with reason: ${error.message}.}`);
-      await sleep(10_000).then(() => Session.login(userCfg));
+      container.logger.info(chalk`{yellow ${userConfig.username} relogged, with reason: ${error.message}.}`);
+      await sleep(10_000).then(() => Session.login(userConfig));
     } else {
-      container.logger.error(error, `${userCfg.username} error, with reason: ${error.message}.`);
+      container.logger.error(error, `${userConfig.username} error, with reason: ${error.message}.`);
     }
   }
 }

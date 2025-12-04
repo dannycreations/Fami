@@ -1,16 +1,17 @@
 import 'dotenv/config';
 
+import { runApp } from '@vegapunk/utilities';
+
 import { FamiClient } from './lib/FamiClient';
 
-const client = new FamiClient();
-
-async function main() {
+async function main(): Promise<void> {
+  const client = new FamiClient();
   try {
     await client.start();
-  } catch (error) {
+  } catch (error: unknown) {
     console.trace(error);
     await client.destroy();
   }
 }
 
-main().catch(console.trace);
+void runApp(main);

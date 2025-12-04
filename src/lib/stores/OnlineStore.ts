@@ -1,7 +1,6 @@
-import { dirname } from 'node:path';
 import { Octokit } from '@octokit/rest';
 import { container } from '@vegapunk/core';
-import { PartialExcept, strictGet } from '@vegapunk/utilities';
+import { strictGet } from '@vegapunk/utilities';
 import { isErrorLike } from '@vegapunk/utilities/result';
 import { waitUntil } from '@vegapunk/utilities/sleep';
 
@@ -9,20 +8,25 @@ import { DataStore } from './internal/DataStore';
 
 import type { DataStoreOptions } from './internal/DataStore';
 
-export class OnlineStore<T extends object> extends DataStore<T> {
-  public override readonly dir: string;
+export class OnlineStore<T extends object> extends DataStore<T, PullOptions> {
+  private readonly client: Octokit;
+  private readonly shaCache: Map<string, string> = new Map();
 
   public constructor(options: OnlineStoreOptions<T>) {
-    super(options);
+    options.ref = options.ref || 'main';
+
+    super({
+      ...options,
+      filePath: `${options.repo}/${options.ref}/${options.file}`,
+    });
 
     this.client = new Octokit({ auth: options.auth });
-
-    options.branch ||= 'main';
-    this.dir = dirname(`${options.repo}${options.branch}${options.path}`);
   }
 
   protected async _init(): Promise<void> {
-    await this.pull().catch(() => this.writeFile(this.options.init));
+    await this.pull().catch(() => {
+      return this.writeFile(this.options.init);
+    });
   }
 
   protected async _readFile(): Promise<T | null> {
@@ -30,96 +34,91 @@ export class OnlineStore<T extends object> extends DataStore<T> {
   }
 
   protected async _writeFile(): Promise<void> {
-    await this.push({ content: JSON.stringify(this.data, null, 2) });
+    await this.push();
   }
 
-  private async pull<T>(options: Partial<PullContext> = {}): Promise<T | null> {
-    options = { ...this.options, ...options };
-    const key = `${options.branch}/${options.path}`;
-
-    return new Promise(async (resolve) => {
-      await waitUntil(async () => {
+  private async pull(): Promise<T | null> {
+    return new Promise((resolve) =>
+      waitUntil(async () => {
         try {
           const { data } = await this.client.repos.getContent({
-            owner: options.owner!,
-            repo: options.repo!,
-            ref: options.branch!,
-            path: options.path!,
+            owner: this.options.owner,
+            repo: this.options.repo,
+            ref: this.options.ref,
+            path: this.options.file,
           });
 
-          this.shaCache.set(key, strictGet(data, 'sha'));
+          this.shaCache.set(this.filePath, strictGet(data, 'sha'));
 
           const content = String(Buffer.from(strictGet(data, 'content'), 'base64'));
-          return (resolve(JSON.parse(content) as T), true);
+          resolve(JSON.parse(content) as T);
+          return true;
         } catch (error) {
           if (isErrorLike<{ status: number }>(error)) {
-            if (!!~error.message.indexOf('timeout')) {
+            if (error.message.includes('timeout')) {
               container.logger.error(`Github pull: ${error.status} ${error.message}.`);
               return false;
             }
 
             container.logger.error(error, `Github pull: ${error.status} ${error.message}.`);
           }
-          return (resolve(null), true);
+
+          resolve(null);
+          return true;
         }
-      });
-    });
+      }),
+    );
   }
 
-  private async push(options: PartialExcept<PushContext, 'content'>): Promise<boolean> {
-    options = { ...this.options, ...options };
-    const key = `${options.branch}/${options.path}`;
-
-    return new Promise(async (resolve) => {
-      await waitUntil(async () => {
+  private async push(): Promise<boolean> {
+    return new Promise((resolve) =>
+      waitUntil(async () => {
         try {
-          let sha = this.shaCache.get(key)!;
+          let sha = this.shaCache.get(this.filePath);
           if (typeof sha !== 'string') {
-            await this.pull(options);
-            sha = this.shaCache.get(key)!;
+            await this.pull();
+            sha = this.shaCache.get(this.filePath);
           }
 
+          const content = JSON.stringify(this.data, null, 2);
           const { data } = await this.client.repos.createOrUpdateFileContents({
-            owner: options.owner!,
-            repo: options.repo!,
-            ref: options.branch!,
-            path: options.path!,
-            content: Buffer.from(options.content).toString('base64'),
-            message: options.message || 'from_server',
+            owner: this.options.owner,
+            repo: this.options.repo,
+            ref: this.options.ref,
+            path: this.options.file,
+            content: Buffer.from(content).toString('base64'),
+            message: 'from_server',
             sha,
           });
 
-          this.shaCache.set(key, strictGet(data, 'content.sha'));
-          return (resolve(true), true);
+          this.shaCache.set(this.filePath, strictGet(data, 'content.sha'));
+          resolve(true);
+          return true;
         } catch (error) {
           if (isErrorLike<{ status: number }>(error)) {
-            if (!!~error.message.indexOf('timeout')) {
+            if (error.message.includes('timeout')) {
               container.logger.error(`Github push: ${error.status} ${error.message}.`);
               return false;
             }
 
             container.logger.error(error, `Github push: ${error.status} ${error.message}.`);
           }
-          return (resolve(false), true);
-        }
-      });
-    });
-  }
 
-  private readonly shaCache: Map<string, string> = new Map();
-  private readonly client: Octokit;
+          resolve(false);
+          return true;
+        }
+      }),
+    );
+  }
 }
 
-export type OnlineStoreOptions<T extends object> = DataStoreOptions<T> & PullContext & { auth: string };
+interface OnlineStoreOptions<T extends object> extends Partial<DataStoreOptions<T>>, PullOptions {
+  auth: string;
+}
 
-export interface PullContext {
+interface PullOptions {
   owner: string;
   repo: string;
-  branch?: string;
-  path: string;
-}
-
-export interface PushContext extends PullContext {
-  content: string;
-  message?: string;
+  ref?: string;
+  file: string;
 }
