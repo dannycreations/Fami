@@ -10,17 +10,18 @@ import { Session } from './struct/Session';
 
 import type { UserContext } from './struct/Session';
 
-const EnvSchema = v.pipe(
-  v.object({
-    GITHUB_REPO: v.pipe(v.string(), v.minLength(1)),
-    GITHUB_OWNER: v.pipe(v.string(), v.minLength(1)),
-    GITHUB_FILE: v.pipe(v.string(), v.minLength(1)),
-    GITHUB_AUTH: v.pipe(v.string(), v.minLength(1)),
-  }),
-  v.readonly(),
+export const env = v.parse(
+  v.pipe(
+    v.object({
+      GITHUB_REPO: v.pipe(v.string(), v.minLength(1)),
+      GITHUB_OWNER: v.pipe(v.string(), v.minLength(1)),
+      GITHUB_FILE: v.pipe(v.string(), v.minLength(1)),
+      GITHUB_AUTH: v.pipe(v.string(), v.minLength(1)),
+    }),
+    v.readonly(),
+  ),
+  process.env,
 );
-
-export const env = v.parse(EnvSchema, process.env);
 
 export class FamiClient extends Vegapunk {
   private readonly onlineStores: OnlineStore<ConfigContext>;

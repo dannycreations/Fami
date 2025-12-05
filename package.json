@@ -10,9 +10,11 @@
     "start:debug": "npm run build && node --inspect-brk .",
     "build": "npm run clean && tsc",
     "check": "tsc --noEmit",
+    "format": "prettier --write .",
     "clean": "pnpx rimraf -g \"*.tsbuildinfo\" \"dist\"",
     "clean:node": "pnpx rimraf -g \"*-lock*\" \"node_modules\"",
-    "update": "pnpx npm-check-updates -u -x @octokit/rest,@types/node"
+    "update": "pnpx npm-check-updates -u -x @octokit/rest,@types/node",
+    "prepare": "husky"
   },
   "dependencies": {
     "@octokit/rest": "20.x",
@@ -33,6 +35,7 @@
     "@types/steam-totp": "^2.1.2",
     "@types/steam-user": "^5.1.0",
     "@types/steamcommunity": "^3.43.8",
+    "husky": "^9.1.7",
     "prettier": "^3.7.4",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
