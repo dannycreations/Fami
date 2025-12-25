@@ -16,14 +16,7 @@ import type { GameContext } from '../lib/struct/Session';
 
 const KEY_TASK_IDLER = (key: string, type: 'MAIN' | 'SIDE'): string => `${key}_${type}_IDLER`;
 const TIMEOUT_MESSAGE = 'Request timed out' as const;
-const EXCLUDED_GAME_NAME: readonly RegExp[] = [
-  /(\sPTS|PTS\s)/gi,
-  /(\sBeta|Beta\s)/gi,
-  /(\sDemo|Demo\s)/gi,
-  /(\sTest|Test\s)/gi,
-  /(\sPlaytest|Playtest\s)/gi,
-  /(\sUnstable|Unstable\s)/gi,
-];
+const EXCLUDED_GAME_NAME = /\b(?:Beta|Demo|P(?:laytest|TS)|Public (?:Beta|Test)|Test|Unstable)\b/i;
 
 export class LoggedOnListener extends Listener<'loggedOn'> {
   public constructor(context: Listener.LoaderContext) {
@@ -139,7 +132,7 @@ export class LoggedOnListener extends Listener<'loggedOn'> {
         );
 
         await waitForEach(combinedGames, (game) => {
-          if (excludeIds.has(game.appid) || EXCLUDED_GAME_NAME.some((regex) => regex.test(game.name))) {
+          if (excludeIds.has(game.appid) || EXCLUDED_GAME_NAME.test(game.name)) {
             return;
           }
           session.ownedGameList.push({ appid: game.appid, name: game.name });
