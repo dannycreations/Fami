@@ -20,25 +20,21 @@ export class ErrorListener extends Listener<'error'> {
     const clientConfig = this.container.client.config;
     const userConfig = cloneDeep(clientConfig.users.find((user) => user.username === session.username)!);
 
+    session.logOff();
+    container.logger.info(error, chalk`{red ${session.username} disconnected.}`);
+
     if (error.message === 'AccessDenied') {
-      session.logOff();
       userConfig.refreshToken = undefined;
     } else if (error.message === 'RateLimitExceeded') {
-      session.logOff();
       await sleep(clientConfig.refreshGames);
     } else if (['LoggedInElsewhere', 'LogonSessionReplaced'].includes(error.message)) {
-      session.logOff();
       await sleep(60_000 * 10);
     } else if (['NoConnection', 'ServiceUnavailable'].includes(error.message)) {
-      session.logOff();
       await waitForConnection();
     }
 
-    if (session.isExpired) {
-      container.logger.info(chalk`{yellow ${userConfig.username} relogged, with reason: ${error.message}.}`);
-      await sleep(10_000).then(() => Session.login(userConfig));
-    } else {
-      container.logger.error(error, `${userConfig.username} error, with reason: ${error.message}.`);
-    }
+    container.logger.info(chalk`{yellow ${userConfig.username} relogged.}`);
+    await sleep(10_000);
+    await Session.login(userConfig);
   }
 }

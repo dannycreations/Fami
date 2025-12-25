@@ -13,6 +13,7 @@ interface SessionState {
   readonly logged: boolean;
   readonly enabled: boolean;
   readonly playing: boolean;
+
   readonly setLogged: (logged: boolean) => void;
   readonly setEnabled: (enabled: boolean) => void;
   readonly setPlaying: (playing: boolean) => void;
@@ -22,9 +23,17 @@ export class Session {
   public static async login(user: UserContext): Promise<void> {
     await waitForConnection();
 
+    const existing = Session.sessions.get(user.username);
+    if (existing) {
+      existing.logOff();
+    }
+
     const session = new Session(user);
+    Session.sessions.set(user.username, session);
     await session.logOn();
   }
+
+  private static readonly sessions = new Map<string, Session>();
 
   @SetProperty(true)
   public readonly steamID: string;
@@ -57,11 +66,9 @@ export class Session {
     setLogged: (logged) => {
       set({ logged });
     },
-
     setEnabled: (enabled) => {
       set({ enabled });
     },
-
     setPlaying: (playing) => {
       set({ playing });
     },
@@ -101,6 +108,7 @@ export class Session {
     });
 
     this.refreshToken = user.refreshToken;
+
     this.timeout = setTimeout(() => {
       this.logOff();
       Session.login(user);
@@ -140,7 +148,7 @@ export class Session {
         if (this.isExpired) {
           return;
         }
-        if (ev.event === 'loggedOn' && this.timeout) {
+        if (ev.event === 'loggedOn') {
           this.state.getState().setLogged(true);
         }
         if (this.timeout) {
@@ -171,6 +179,10 @@ export class Session {
     const { setLogged, setEnabled } = this.state.getState();
     setLogged(false);
     setEnabled(false);
+
+    if (Session.sessions.get(this.username) === this) {
+      Session.sessions.delete(this.username);
+    }
 
     this.store.dispose();
     this.client.logOff();

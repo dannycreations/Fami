@@ -99,7 +99,6 @@ declare module '@vegapunk/core' {
   }
 
   interface ClientEvents {
-    disconnected: [session: Session, eresult: SteamUser.EResult, msg: string];
     error: [session: Session, error: Error & { eresult: EResult }];
     loggedOn: [session: Session];
     refreshToken: [session: Session, refreshToken: string];
