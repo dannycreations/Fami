@@ -58,7 +58,9 @@ export class LoggedOnListener extends Listener<'loggedOn'> {
     });
 
     await waitUntil(() => session.isExpired || session.isEnabled || session.ownedGameList.length > 0);
-    if (session.isExpired) return;
+    if (session.isExpired) {
+      return;
+    }
 
     container.logger.info(`${session.username} owns ${session.ownedGameList.length} game(s).`);
 
@@ -96,59 +98,75 @@ export class LoggedOnListener extends Listener<'loggedOn'> {
 
   private async updateGameList(session: Session): Promise<void> {
     const clientConfig = this.container.client.config;
-    const includeIds = new Set([...clientConfig.whitelistGameIds, ...session.whitelistGameIds]);
-    const excludeIds = new Set([
+    const includedIds = new Set([...clientConfig.whitelistGameIds, ...session.whitelistGameIds]);
+    const excludedIds = new Set([
       ...clientConfig.blacklistGameIds,
       ...session.blacklistGameIds,
       ...session.bannedGameIds,
       ...session.ownedGameList.map((game) => game.appid),
     ]);
 
-    let timeoutId: NodeJS.Timeout;
-    return waitUntil(async (release) => {
-      if (session.isExpired) {
-        return release();
-      }
-
-      const result = await Result.fromAsync(async () => {
-        const userAppsData = await new Promise<{ apps: GameContext[] }>((resolve, reject) => {
-          timeoutId = setTimeout(() => reject(TIMEOUT_MESSAGE), 60_000);
-          session.client
-            .getUserOwnedApps(session.steamID, {
-              includeAppInfo: true,
-              includeFreeSub: true,
-              skipUnvettedApps: false,
-              includePlayedFreeGames: true,
-            } as SteamUser.GetUserOwnedAppsOptions)
-            .then(resolve)
-            .catch(reject);
-        });
-
-        clearTimeout(timeoutId);
-        const combinedGames = unionBy(
-          userAppsData.apps,
-          [...includeIds].map((appid) => ({ appid, name: 'unknown' })),
-          (game) => game.appid,
-        );
-
-        await waitForEach(combinedGames, (game) => {
-          if (excludeIds.has(game.appid) || EXCLUDED_GAME_NAME.test(game.name)) {
-            return;
-          }
-          session.ownedGameList.push({ appid: game.appid, name: game.name });
-        });
-        release();
-      });
-
-      if (result.isErr()) {
-        clearTimeout(timeoutId);
-        const error = result.unwrapErr();
-        if (isErrorLike(error) && error.message !== TIMEOUT_MESSAGE) {
-          container.logger.error(error, `${session.username} ${this.updateGameList.name}.`);
+    let timeoutId: NodeJS.Timeout | undefined;
+    try {
+      await waitUntil(async (release) => {
+        if (session.isExpired) {
+          return release();
         }
-        await sleep(10_000);
+
+        const result = await Result.fromAsync(async () => {
+          const userAppsData = await new Promise<{ apps: GameContext[] }>((resolve, reject) => {
+            timeoutId = setTimeout(() => reject(new Error(TIMEOUT_MESSAGE)), 60_000);
+            session.client
+              .getUserOwnedApps(session.steamID, {
+                includeAppInfo: true,
+                includeFreeSub: true,
+                skipUnvettedApps: false,
+                includePlayedFreeGames: true,
+              } as SteamUser.GetUserOwnedAppsOptions)
+              .then(resolve)
+              .catch(reject);
+          });
+
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = undefined;
+          }
+
+          const combinedGames = unionBy(
+            userAppsData.apps,
+            [...includedIds].map((appid) => ({ appid, name: 'unknown' })),
+            (game) => game.appid,
+          );
+
+          await waitForEach(combinedGames, (game) => {
+            const isWhitelisted = includedIds.has(game.appid);
+            const isBlacklisted = excludedIds.has(game.appid) || EXCLUDED_GAME_NAME.test(game.name);
+            if (!isWhitelisted && isBlacklisted) {
+              return;
+            }
+            session.ownedGameList.push({ appid: game.appid, name: game.name });
+          });
+          release();
+        });
+
+        if (result.isErr()) {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = undefined;
+          }
+
+          const error = result.unwrapErr();
+          if (isErrorLike(error) && error.message !== TIMEOUT_MESSAGE) {
+            container.logger.error(error, `${session.username} ${this.updateGameList.name}.`);
+          }
+          await sleep(10_000);
+        }
+      });
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
-    });
+    }
   }
 
   private async collectFreeGames(session: Session): Promise<void> {
@@ -160,7 +178,7 @@ export class LoggedOnListener extends Listener<'loggedOn'> {
       ...session.ownedGameList.map((game) => game.appid),
     ]);
 
-    return waitUntil(async (release, retries) => {
+    await waitUntil(async (release, retries) => {
       if (session.isExpired || retries >= 3) {
         return release();
       }
@@ -185,7 +203,9 @@ export class LoggedOnListener extends Listener<'loggedOn'> {
           const appIds = gameIdMatches.map((id) => parseInt(id, 10)).filter((id) => !isNaN(id));
 
           await waitForEach(appIds, async (appid) => {
-            if (claimExcludeIds.has(appid) || session.freeGameIds.includes(appid)) return;
+            if (claimExcludeIds.has(appid) || session.freeGameIds.includes(appid)) {
+              return;
+            }
 
             const detailResult = await requestDefault({
               url: `https://store.steampowered.com/api/appdetails?appids=${appid}`,
@@ -245,56 +265,60 @@ export class LoggedOnListener extends Listener<'loggedOn'> {
       return;
     }
 
-    const clientConfig = this.container.client.config;
-    return waitUntil(async (release, retries) => {
-      const isRetryLimitReached = retries >= 3 && session.freeGameList.length < 50;
-      const isSufficientGamesOrForced = session.freeGameList.length >= 50 || session.forceRegister;
-      if (session.isExpired || isRetryLimitReached || !isSufficientGamesOrForced) {
-        this.registerMutex.release();
-        return release();
-      }
+    try {
+      const clientConfig = this.container.client.config;
+      await waitUntil(async (release, retries) => {
+        const isRetryLimitReached = retries >= 3 && session.freeGameList.length < 50;
+        const isSufficientGamesOrForced = session.freeGameList.length >= 50 || session.forceRegister;
 
-      const gamesToRegister = session.freeGameList.slice(0, 50);
-      const gameIdsToRegister = new Set(gamesToRegister.map((game) => game.appid));
-
-      const result = await Result.fromAsync(async () => {
-        await session.client.requestFreeLicense([...gameIdsToRegister]);
-        const message = `${gamesToRegister.length}/${session.freeGameList.length}/${session.lastPage} new games.`;
-        container.logger.info(`${session.username} added ${message}`);
-
-        remove(session.freeGameList, (game) => gameIdsToRegister.has(game.appid));
-      });
-
-      if (result.isErr()) {
-        const error = result.unwrapErr();
-        if (isErrorLike<{ eresult: number }>(error) && error.message !== TIMEOUT_MESSAGE) {
-          container.logger.error(error, `${session.username} ${this.registerFreeGames.name}.`);
-          if (error.message === 'RateLimitExceeded') {
-            queueMicrotask(async () => {
-              let lockId: NodeJS.Timeout | null;
-              lockId = setTimeout(() => (lockId = null), clientConfig.refreshGames);
-              await waitUntil(() => !lockId || session.isExpired, { delay: 1000 });
-
-              clearTimeout(lockId);
-              this.registerMutex.release();
-            });
-            return release();
-          }
+        if (session.isExpired || isRetryLimitReached || !isSufficientGamesOrForced) {
+          return release();
         }
-        return sleep(10_000, false);
-      }
 
-      session.lastLoop = 0;
-      session.forceRegister = false;
-      await session.store.writeFile({
-        lastPage: session.lastPage,
-        freeGameList: session.freeGameList,
-        freeGameIds: session.freeGameIds,
+        const gamesToRegister = session.freeGameList.slice(0, 50);
+        const gameIdsToRegister = new Set(gamesToRegister.map((game) => game.appid));
+
+        const result = await Result.fromAsync(async () => {
+          await session.client.requestFreeLicense([...gameIdsToRegister]);
+          const message = `${gamesToRegister.length}/${session.freeGameList.length}/${session.lastPage} new games.`;
+          container.logger.info(`${session.username} added ${message}`);
+
+          remove(session.freeGameList, (game) => gameIdsToRegister.has(game.appid));
+        });
+
+        if (result.isErr()) {
+          const error = result.unwrapErr();
+          if (isErrorLike<{ eresult: number }>(error) && error.message !== TIMEOUT_MESSAGE) {
+            container.logger.error(error, `${session.username} ${this.registerFreeGames.name}.`);
+            if (error.message === 'RateLimitExceeded') {
+              queueMicrotask(async () => {
+                try {
+                  let lockId: NodeJS.Timeout | null = setTimeout(() => (lockId = null), clientConfig.refreshGames);
+                  await waitUntil(() => !lockId || session.isExpired, { delay: 1000 });
+                  if (lockId) clearTimeout(lockId);
+                } finally {
+                  this.registerMutex.release();
+                }
+              });
+              return release();
+            }
+          }
+          return sleep(10_000, false);
+        }
+
+        session.lastLoop = 0;
+        session.forceRegister = false;
+        await session.store.writeFile({
+          lastPage: session.lastPage,
+          freeGameList: session.freeGameList,
+          freeGameIds: session.freeGameIds,
+        });
+
+        release();
       });
-
+    } finally {
       this.registerMutex.release();
-      release();
-    });
+    }
   }
 
   private startIdleGames(session: Session): number {
