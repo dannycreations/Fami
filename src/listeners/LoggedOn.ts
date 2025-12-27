@@ -2,7 +2,7 @@ import { container, Listener, Task } from '@vegapunk/core';
 import { requestDefault } from '@vegapunk/request';
 import { Mutex } from '@vegapunk/struct';
 import { chalk } from '@vegapunk/utilities';
-import { random, remove, shuffle, unionBy } from '@vegapunk/utilities/common';
+import { attempt, random, remove, shuffle, unionBy } from '@vegapunk/utilities/common';
 import { isErrorLike, Result } from '@vegapunk/utilities/result';
 import { sleep, waitForEach, waitUntil } from '@vegapunk/utilities/sleep';
 import { humanizeDuration } from '@vegapunk/utilities/time';
@@ -213,7 +213,10 @@ export class LoggedOnListener extends Listener<'loggedOn'> {
             });
 
             const app = await detailResult.match({
-              ok: ({ body }) => sleep(1_500, JSON.parse(body)[appid] as AppDetails),
+              ok: ({ body }) => {
+                const [_, value] = attempt(() => JSON.parse(body)[appid]);
+                return sleep(1_500, value as AppDetails);
+              },
               err: () => null,
             });
 
