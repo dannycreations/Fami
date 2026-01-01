@@ -1,7 +1,7 @@
 import { container } from '@vegapunk/core';
 import { unionBy } from '@vegapunk/utilities/common';
 import { isErrorLike, Result } from '@vegapunk/utilities/result';
-import { sleep, waitUntil } from '@vegapunk/utilities/sleep';
+import { sleep, waitForEach, waitUntil } from '@vegapunk/utilities/sleep';
 
 import type SteamUser from 'steam-user';
 import type CSteamUser from 'steamcommunity/classes/CSteamUser';
@@ -46,17 +46,16 @@ export async function scanGames(session: Session): Promise<void> {
           (game) => game.appid,
         );
 
-        const filteredGames = combinedGames
-          .filter((game) => {
-            const isWhitelisted = includedIds.has(game.appid);
-            const isBlacklisted = excludedIds.has(game.appid) || EXCLUDED_GAME_NAME.test(game.name);
-            return isWhitelisted || !isBlacklisted;
-          })
-          .map((game) => ({ appid: game.appid, name: game.name }));
+        await waitForEach(combinedGames, (game) => {
+          const isWhitelisted = includedIds.has(game.appid);
+          const isBlacklisted = excludedIds.has(game.appid) || EXCLUDED_GAME_NAME.test(game.name);
+          if (isWhitelisted || !isBlacklisted) {
+            if (!session.ownedGameList.some((r) => r.appid === game.appid)) {
+              session.ownedGameList.push({ appid: game.appid, name: game.name });
+            }
+          }
+        });
 
-        // Clear and update the list to avoid duplicates on periodic scans
-        session.ownedGameList.length = 0;
-        session.ownedGameList.push(...filteredGames);
         release();
       });
 

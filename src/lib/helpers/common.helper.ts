@@ -4,6 +4,7 @@ import type { Session } from '../struct/Session';
 
 export async function getSteamUser(session: Session, id: NonNullable<SteamUser['steamID']>): Promise<CSteamUser | null> {
   return new Promise((resolve) => {
+    // 10s timeout to prevent hanging on network issues
     const timeoutId = setTimeout(() => resolve(null), 10_000);
     session.web.getSteamUser(id, (err, user) => {
       clearTimeout(timeoutId);

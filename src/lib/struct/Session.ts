@@ -56,7 +56,7 @@ export class Session {
   @SetProperty(true)
   public readonly client: SteamUser;
   @SetProperty(true)
-  public readonly store: OfflineStore<Session>;
+  public readonly store: OfflineStore<SessionData>;
   @SetProperty(true)
   private readonly state = createStore<SessionState>()((set) => ({
     logged: false,
@@ -74,13 +74,13 @@ export class Session {
     },
   }));
 
-  public lastPage: number = 1;
   public lastLoop: number = 0;
+  public lastPage: number = 1;
+  public freeGameIds: number[] = [];
+  public freeGameList: GameContext[] = [];
   public freeGameLength: number = 0;
   public forceRegister: boolean = false;
-  public freeGameIds: number[] = [];
   public bannedGameIds: number[] = [];
-  public freeGameList: GameContext[] = [];
 
   @SetProperty(true)
   public refreshToken?: string;
@@ -100,7 +100,15 @@ export class Session {
     this.store = new OfflineStore({
       filePath: join(process.cwd(), 'sessions', this.username, 'session.json'),
       delay: 60_000 * 10,
-      watch: () => this.store.data,
+      watch: () => ({
+        lastLoop: this.lastLoop,
+        lastPage: this.lastPage,
+        freeGameIds: this.freeGameIds,
+        freeGameList: this.freeGameList,
+        freeGameLength: this.freeGameLength,
+        forceRegister: this.forceRegister,
+        ownedGameList: this.ownedGameList,
+      }),
     });
     this.web = new SteamCommunity({ timeout: 10_000 });
     this.client = new SteamUser({
@@ -219,6 +227,16 @@ export class Session {
     const clientConfig = container.client.config;
     return new Set([...clientConfig.whitelistGameIds, ...this.whitelistGameIds]);
   }
+}
+
+export interface SessionData {
+  lastLoop: number;
+  lastPage: number;
+  freeGameIds: number[];
+  freeGameList: GameContext[];
+  freeGameLength: number;
+  forceRegister: boolean;
+  ownedGameList: GameContext[];
 }
 
 export interface UserContext {

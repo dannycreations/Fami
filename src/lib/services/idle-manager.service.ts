@@ -5,19 +5,18 @@ import { humanizeDuration } from '@vegapunk/utilities/time';
 import type { Session } from '../struct/Session';
 
 export function startIdleGames(session: Session): number {
-  const maxIdleCount = Math.min(32, session.ownedGameList.length);
-
-  const idleMs = random(60, 120) * 60_000;
+  const idleMs = random(60, 180) * 60_000;
   const nextIdleAt = Date.now() + idleMs;
 
   const allOwnedIds = session.ownedGameList.map((game) => game.appid);
-  const idsToIdle = shuffle(allOwnedIds).slice(0, maxIdleCount);
+  const maxIdleTotal = Math.min(32, session.ownedGameList.length);
+  const idsToIdle = shuffle(allOwnedIds).slice(0, maxIdleTotal);
 
   session.gamesPlayed(idsToIdle);
 
   const durationString = humanizeDuration(idleMs, { units: ['h', 'm'], round: true });
   container.logger.info(`${session.username} idling ${idsToIdle.length} games for ${durationString}`);
-  container.logger.info(`- ${idsToIdle.join(', ')}`);
+  container.logger.info(`- ${idsToIdle.join(', ').trim()}`);
 
   return nextIdleAt;
 }

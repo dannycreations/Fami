@@ -22,6 +22,6 @@ export class VacBansListener extends Listener<'vacBans'> {
     }
 
     container.logger.info(`${session.username} has ${numBans} VAC ban(s)`);
-    container.logger.info(`- ${appids.join(', ')}`);
+    container.logger.info(`- ${appids.join(', ').trim()}`);
   }
 }

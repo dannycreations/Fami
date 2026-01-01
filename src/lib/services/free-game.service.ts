@@ -75,12 +75,6 @@ export async function collectFreeGames(session: Session): Promise<void> {
         session.freeGameLength = session.freeGameList.length;
       }
 
-      await session.store.writeFile({
-        lastPage: session.lastPage,
-        freeGameList: session.freeGameList,
-        freeGameIds: session.freeGameIds,
-      });
-
       release();
     } else {
       const error = searchResult.unwrapErr();
@@ -143,11 +137,6 @@ export async function registerFreeGames(session: Session): Promise<void> {
 
       session.lastLoop = 0;
       session.forceRegister = false;
-      await session.store.writeFile({
-        lastPage: session.lastPage,
-        freeGameList: session.freeGameList,
-        freeGameIds: session.freeGameIds,
-      });
 
       release();
     });
