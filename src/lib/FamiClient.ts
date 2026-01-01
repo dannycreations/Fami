@@ -1,30 +1,17 @@
 import { EventEmitter } from 'node:events';
+import { join } from 'node:path';
 import { container, Task, Vegapunk } from '@vegapunk/core';
 import { chalk, killApp } from '@vegapunk/utilities';
 import { waitUntil } from '@vegapunk/utilities/sleep';
-import { v } from '@vegapunk/utilities/strict';
 import SteamUser, { EResult } from 'steam-user';
 
-import { OnlineStore } from './stores/OnlineStore';
+import { OfflineStore } from './stores/OfflineStore';
 import { Session } from './struct/Session';
 
 import type { UserContext } from './struct/Session';
 
-export const env = v.parse(
-  v.pipe(
-    v.object({
-      GITHUB_REPO: v.pipe(v.string(), v.minLength(1)),
-      GITHUB_OWNER: v.pipe(v.string(), v.minLength(1)),
-      GITHUB_FILE: v.pipe(v.string(), v.minLength(1)),
-      GITHUB_AUTH: v.pipe(v.string(), v.minLength(1)),
-    }),
-    v.readonly(),
-  ),
-  process.env,
-);
-
 export class FamiClient extends Vegapunk {
-  private readonly onlineStores: OnlineStore<ConfigContext>;
+  private readonly store: OfflineStore<ConfigContext>;
 
   public constructor() {
     super();
@@ -32,12 +19,17 @@ export class FamiClient extends Vegapunk {
     const steam = new EventEmitter();
     Object.assign(container, { steam } as typeof container);
 
-    this.onlineStores = new OnlineStore<ConfigContext>({
-      repo: env.GITHUB_REPO,
-      owner: env.GITHUB_OWNER,
-      file: env.GITHUB_FILE,
-      auth: env.GITHUB_AUTH,
-      init: { blacklistGameIds: [], whitelistGameIds: [] },
+    this.store = new OfflineStore<ConfigContext>({
+      filePath: join(process.cwd(), 'sessions', 'settings.json'),
+      init: {
+        refreshGames: 3_600_000,
+        fetchFreeGames: false,
+        skipBannedGames: true,
+        whitelistGameIds: [],
+        blacklistGameIds: [],
+        family: [],
+        users: [],
+      },
       delay: 60_000,
       watch: () => this.config,
     });
@@ -46,9 +38,9 @@ export class FamiClient extends Vegapunk {
   public override async start(): Promise<void> {
     await super.start();
 
-    await this.onlineStores.readFile();
-    Object.assign(this, { config: this.onlineStores.data });
-    this.onlineStores.setDelay(this.config.refreshGames);
+    await this.store.readFile();
+    Object.assign(this, { config: this.store.data });
+    this.store.setDelay(this.config.refreshGames);
 
     await waitUntil(() => !!this.config);
     await Promise.all(this.config.users.map(Session.login));
@@ -99,11 +91,11 @@ declare module '@vegapunk/core' {
   }
 
   interface ClientEvents {
-    error: [session: Session, error: Error & { eresult: EResult }];
-    loggedOn: [session: Session];
-    refreshToken: [session: Session, refreshToken: string];
-    steamGuard: [session: Session, domain: string | null, callback: (code: string) => void, lastCodeWrong: boolean];
-    vacBans: [session: Session, numBans: number, appids: number[]];
-    user: [session: Session, sid: NonNullable<SteamUser['steamID']>, user: Record<string, any>];
+    readonly error: [session: Session, error: Error & { eresult: EResult }];
+    readonly loggedOn: [session: Session];
+    readonly refreshToken: [session: Session, refreshToken: string];
+    readonly steamGuard: [session: Session, domain: string | null, callback: (code: string) => void, lastCodeWrong: boolean];
+    readonly vacBans: [session: Session, numBans: number, appids: number[]];
+    readonly user: [session: Session, sid: NonNullable<SteamUser['steamID']>, user: Record<string, any>];
   }
 }
