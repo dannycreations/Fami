@@ -81,6 +81,11 @@ export interface ConfigContext {
   users: UserContext[];
 }
 
+export interface UserStatus {
+  readonly persona_state: number;
+  readonly player_name: string;
+}
+
 declare module '@vegapunk/core' {
   interface Container {
     readonly steam: EventEmitter;
@@ -96,6 +101,6 @@ declare module '@vegapunk/core' {
     readonly refreshToken: [session: Session, refreshToken: string];
     readonly steamGuard: [session: Session, domain: string | null, callback: (code: string) => void, lastCodeWrong: boolean];
     readonly vacBans: [session: Session, numBans: number, appids: number[]];
-    readonly user: [session: Session, sid: NonNullable<SteamUser['steamID']>, user: Record<string, any>];
+    readonly user: [session: Session, sid: NonNullable<SteamUser['steamID']>, user: UserStatus];
   }
 }

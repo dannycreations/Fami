@@ -16,8 +16,8 @@ export function startIdleGames(session: Session): number {
   session.gamesPlayed(idsToIdle);
 
   const durationString = humanizeDuration(idleMs, { units: ['h', 'm'], round: true });
-  container.logger.info(`${session.username} idling ${idsToIdle.length} games for ${durationString}.`);
-  container.logger.info(`• ${idsToIdle.join(', ')}.`);
+  container.logger.info(`${session.username} idling ${idsToIdle.length} games for ${durationString}`);
+  container.logger.info(`• ${idsToIdle.join(', ')}`);
 
   return nextIdleAt;
 }

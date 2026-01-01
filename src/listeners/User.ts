@@ -4,6 +4,8 @@ import SteamUser from 'steam-user';
 
 import { Session } from '../lib/struct/Session';
 
+import type { UserStatus } from '../lib/FamiClient';
+
 const OFFLINE_STATE = [SteamUser.EPersonaState.Offline, SteamUser.EPersonaState.Invisible] as const;
 
 export class UserListener extends Listener<'user'> {
@@ -28,16 +30,11 @@ export class UserListener extends Listener<'user'> {
       session.gamesPlayed([]);
 
       const playerName = user.player_name || 'FamilyMember';
-      container.logger.info(chalk`{yellow ${session.username} sleeping, reason: family member ${playerName} is now online.}`);
+      container.logger.info(chalk`{yellow ${session.username} sleeping, reason: ${playerName} is online}`);
     }
 
     if (session.family[userId] === -1 || user.persona_state !== undefined) {
       session.family[userId] = userPersona;
     }
   }
-}
-
-interface UserStatus {
-  readonly persona_state: number;
-  readonly player_name: string;
 }

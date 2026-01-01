@@ -1,23 +1,18 @@
 import { container } from '@vegapunk/core';
-import { isObjectLike, unionBy } from '@vegapunk/utilities/common';
+import { unionBy } from '@vegapunk/utilities/common';
 import { isErrorLike, Result } from '@vegapunk/utilities/result';
-import { sleep, waitForEach, waitUntil } from '@vegapunk/utilities/sleep';
+import { sleep, waitUntil } from '@vegapunk/utilities/sleep';
 
 import type SteamUser from 'steam-user';
+import type CSteamUser from 'steamcommunity/classes/CSteamUser';
 import type { GameContext, Session } from '../struct/Session';
 
 const TIMEOUT_MESSAGE = 'Request timed out' as const;
 const EXCLUDED_GAME_NAME = /\b(?:Beta|Demo|P(?:laytest|TS)|Public (?:Beta|Test)|Test|Unstable)\b/i;
 
 export async function scanGames(session: Session): Promise<void> {
-  const clientConfig = container.client.config;
-  const includedIds = new Set([...clientConfig.whitelistGameIds, ...session.whitelistGameIds]);
-  const excludedIds = new Set([
-    ...clientConfig.blacklistGameIds,
-    ...session.blacklistGameIds,
-    ...session.bannedGameIds,
-    ...session.ownedGameList.map((game) => game.appid),
-  ]);
+  const includedIds = session.getIncludedAppIds();
+  const excludedIds = session.getExcludedAppIds();
 
   let timeoutId: NodeJS.Timeout | undefined;
   try {
@@ -51,14 +46,17 @@ export async function scanGames(session: Session): Promise<void> {
           (game) => game.appid,
         );
 
-        await waitForEach(combinedGames, (game) => {
-          const isWhitelisted = includedIds.has(game.appid);
-          const isBlacklisted = excludedIds.has(game.appid) || EXCLUDED_GAME_NAME.test(game.name);
-          if (!isWhitelisted && isBlacklisted) {
-            return;
-          }
-          session.ownedGameList.push({ appid: game.appid, name: game.name });
-        });
+        const filteredGames = combinedGames
+          .filter((game) => {
+            const isWhitelisted = includedIds.has(game.appid);
+            const isBlacklisted = excludedIds.has(game.appid) || EXCLUDED_GAME_NAME.test(game.name);
+            return isWhitelisted || !isBlacklisted;
+          })
+          .map((game) => ({ appid: game.appid, name: game.name }));
+
+        // Clear and update the list to avoid duplicates on periodic scans
+        session.ownedGameList.length = 0;
+        session.ownedGameList.push(...filteredGames);
         release();
       });
 
@@ -70,7 +68,7 @@ export async function scanGames(session: Session): Promise<void> {
 
         const error = result.unwrapErr();
         if (isErrorLike(error) && error.message !== TIMEOUT_MESSAGE) {
-          container.logger.error(error, `[GameScanner] ${session.username} error during scan.`);
+          container.logger.error(error, `GameScanner: ${session.username} error during scan`);
         }
         await sleep(10_000);
       }
@@ -82,8 +80,8 @@ export async function scanGames(session: Session): Promise<void> {
   }
 }
 
-export function updateEnabledState(session: Session, steamUser: unknown): void {
-  if (isObjectLike(steamUser) && 'onlineState' in steamUser) {
-    session.getState().setEnabled((steamUser as { onlineState: string }).onlineState === 'offline');
+export function updateEnabledState(session: Session, steamUser: CSteamUser | null): void {
+  if (typeof steamUser?.onlineState === 'string') {
+    session.getState().setEnabled(steamUser.onlineState === 'offline');
   }
 }

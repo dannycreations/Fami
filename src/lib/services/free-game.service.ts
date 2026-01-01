@@ -1,24 +1,17 @@
 import { container } from '@vegapunk/core';
 import { requestDefault } from '@vegapunk/request';
 import { Mutex } from '@vegapunk/struct';
-import { attempt, remove } from '@vegapunk/utilities/common';
+import { isObjectLike, remove } from '@vegapunk/utilities/common';
 import { isErrorLike, Result } from '@vegapunk/utilities/result';
 import { sleep, waitForEach, waitUntil } from '@vegapunk/utilities/sleep';
 
 import type { Session } from '../struct/Session';
-import type { AppDetails } from '../types/AppDetails';
 
 const TIMEOUT_MESSAGE = 'Request timed out' as const;
 const registerMutex = new Mutex();
 
 export async function collectFreeGames(session: Session): Promise<void> {
-  const clientConfig = container.client.config;
-  const claimExcludeIds = new Set([
-    ...clientConfig.blacklistGameIds,
-    ...session.blacklistGameIds,
-    ...session.bannedGameIds,
-    ...session.ownedGameList.map((game) => game.appid),
-  ]);
+  const claimExcludeIds = session.getExcludedAppIds();
 
   await waitUntil(async (release, retries) => {
     if (session.isExpired || retries >= 3) {
@@ -40,39 +33,33 @@ export async function collectFreeGames(session: Session): Promise<void> {
 
     if (searchResult.isOk()) {
       const { body } = searchResult.unwrap();
-      const gameIdMatches = body.match(/(?<=data-ds-appid=")[^"]*/g);
+      const gameIdMatches = body.match(/data-ds-appid="([^"]+)"/g);
       if (gameIdMatches && gameIdMatches.length > 0) {
-        const appIds = gameIdMatches.map((id) => parseInt(id, 10)).filter((id) => !isNaN(id));
+        const allAppIds = [...new Set(gameIdMatches.flatMap((m) => m.match(/\d+/g) || []).map(Number))];
+        const appIdsToCheck = allAppIds.filter((id) => !claimExcludeIds.has(id) && !session.freeGameIds.includes(id));
 
-        await waitForEach(appIds, async (appid) => {
-          if (claimExcludeIds.has(appid) || session.freeGameIds.includes(appid)) {
-            return;
+        if (appIdsToCheck.length > 0) {
+          const productInfoResult = await Result.fromAsync(() => session.client.getProductInfo(appIdsToCheck, []));
+          const apps = productInfoResult.unwrapOr({ apps: null }).apps;
+          if (isObjectLike(apps)) {
+            await waitForEach(appIdsToCheck, (appid) => {
+              const app = apps[appid];
+              const common = app?.appinfo?.common;
+
+              if (!common) {
+                claimExcludeIds.add(appid);
+                return;
+              }
+
+              if (common.releasestate !== 'released' || common.type?.toLowerCase() !== 'game') {
+                return;
+              }
+
+              session.freeGameIds.push(appid);
+              session.freeGameList.push({ name: common.name, appid });
+            });
           }
-
-          const detailResult = await requestDefault({
-            url: `https://store.steampowered.com/api/appdetails?appids=${appid}`,
-            retry: -1,
-          });
-
-          const app = await detailResult.match({
-            ok: ({ body }) => {
-              const [_, value] = attempt(() => JSON.parse(body)[appid]);
-              return sleep(1_500, value as AppDetails);
-            },
-            err: () => null,
-          });
-
-          if (!app?.data) {
-            claimExcludeIds.add(appid);
-            return;
-          }
-          if (!app.success || !app.data.is_free || app.data.release_date.coming_soon) {
-            return;
-          }
-
-          session.freeGameIds.push(appid);
-          session.freeGameList.push({ name: app.data.name, appid: app.data.steam_appid });
-        });
+        }
         session.lastPage++;
       } else {
         if (session.lastLoop >= 5) {
@@ -80,9 +67,11 @@ export async function collectFreeGames(session: Session): Promise<void> {
           session.forceRegister = true;
           session.freeGameIds.length = 0;
         }
+
         if (session.freeGameLength === session.freeGameList.length) {
           session.lastLoop++;
         }
+
         session.freeGameLength = session.freeGameList.length;
       }
 
@@ -91,12 +80,14 @@ export async function collectFreeGames(session: Session): Promise<void> {
         freeGameList: session.freeGameList,
         freeGameIds: session.freeGameIds,
       });
+
       release();
     } else {
       const error = searchResult.unwrapErr();
       if (isErrorLike(error) && error.message !== TIMEOUT_MESSAGE) {
-        container.logger.error(error, `[FreeGameService] ${session.username} error during collection.`);
+        container.logger.error(error, `FreeGame: ${session.username} error during collection`);
       }
+
       await sleep(10_000);
     }
 
@@ -133,7 +124,7 @@ export async function registerFreeGames(session: Session): Promise<void> {
       if (result.isErr()) {
         const error = result.unwrapErr();
         if (isErrorLike<{ eresult: number }>(error) && error.message !== TIMEOUT_MESSAGE) {
-          container.logger.error(error, `[FreeGameService] ${session.username} error during registration.`);
+          container.logger.error(error, `FreeGame: ${session.username} error during registration`);
           if (error.message === 'RateLimitExceeded') {
             queueMicrotask(async () => {
               try {

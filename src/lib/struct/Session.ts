@@ -158,17 +158,17 @@ export class Session {
           this.timeout = undefined;
         }
 
-        container.logger.trace(args, `${this.username} stream event ${String(ev.event)}.`);
+        container.logger.trace(args, `${this.username} stream event ${String(ev.event)}`);
         container.steam.emit(ev.event, this, ...args);
       });
     });
 
     if (typeof this.refreshToken === 'string') {
       this.client.logOn({ refreshToken: this.refreshToken });
-      container.logger.info(`${this.username} trying logon using token.`);
+      container.logger.info(`${this.username} trying logon using token`);
     } else {
       this.client.logOn({ accountName: this.username, password: this.password });
-      container.logger.info(`${this.username} trying logon using credential.`);
+      container.logger.info(`${this.username} trying logon using credential`);
     }
   }
 
@@ -203,6 +203,21 @@ export class Session {
     const { Online, Invisible } = SteamUser.EPersonaState;
     this.client.setPersona(hasIds ? Online : Invisible);
     this.client.gamesPlayed(ids);
+  }
+
+  public getExcludedAppIds(): Set<number> {
+    const clientConfig = container.client.config;
+    return new Set([
+      ...clientConfig.blacklistGameIds,
+      ...this.blacklistGameIds,
+      ...this.bannedGameIds,
+      ...this.ownedGameList.map((game) => game.appid),
+    ]);
+  }
+
+  public getIncludedAppIds(): Set<number> {
+    const clientConfig = container.client.config;
+    return new Set([...clientConfig.whitelistGameIds, ...this.whitelistGameIds]);
   }
 }
 

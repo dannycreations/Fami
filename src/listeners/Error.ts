@@ -3,10 +3,9 @@ import { waitForConnection } from '@vegapunk/request';
 import { chalk } from '@vegapunk/utilities';
 import { cloneDeep } from '@vegapunk/utilities/common';
 import { sleep } from '@vegapunk/utilities/sleep';
+import { EResult } from 'steam-user';
 
 import { Session } from '../lib/struct/Session';
-
-import type { EResult } from 'steam-user';
 
 export class ErrorListener extends Listener<'error'> {
   public constructor(context: Listener.LoaderContext) {
@@ -21,26 +20,29 @@ export class ErrorListener extends Listener<'error'> {
     const userConfig = cloneDeep(clientConfig.users.find((user) => user.username === session.username)!);
 
     session.logOff();
-    container.logger.info(error, chalk`{red ${session.username} disconnected.}`);
+    container.logger.info(error, chalk`{red ${session.username} disconnected}`);
 
-    switch (error.message) {
-      case 'AccessDenied':
+    switch (error.eresult) {
+      case EResult.AccessDenied:
+      case EResult.InvalidPassword:
         userConfig.refreshToken = undefined;
         break;
-      case 'RateLimitExceeded':
-        await sleep(clientConfig.refreshGames);
+      case EResult.RateLimitExceeded:
+        // At least 30 minutes for rate limits
+        await sleep(Math.max(clientConfig.refreshGames, 1_800_000));
         break;
-      case 'LoggedInElsewhere':
-      case 'LogonSessionReplaced':
-        await sleep(600_000); // 10 minutes
+      case EResult.LoggedInElsewhere:
+      case EResult.LogonSessionReplaced:
+        // 10 minutes
+        await sleep(600_000);
         break;
-      case 'NoConnection':
-      case 'ServiceUnavailable':
+      case EResult.NoConnection:
+      case EResult.ServiceUnavailable:
         await waitForConnection();
         break;
     }
 
-    container.logger.info(chalk`{yellow ${userConfig.username} relogged.}`);
+    container.logger.info(chalk`{yellow ${userConfig.username} relogged}`);
     await sleep(10_000);
     await Session.login(userConfig);
   }

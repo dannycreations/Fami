@@ -58,7 +58,7 @@ export interface Category {
 }
 
 export interface ContentDescriptors {
-  ids: any[];
+  ids: unknown[];
   notes: null;
 }
 

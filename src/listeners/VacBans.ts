@@ -12,7 +12,7 @@ export class VacBansListener extends Listener<'vacBans'> {
 
   public run(session: Session, numBans: number, appids: number[]): void {
     if (numBans === 0) {
-      container.logger.info(`${session.username} has no VAC bans.`);
+      container.logger.info(`${session.username} has no VAC bans`);
       return;
     }
 
@@ -21,7 +21,7 @@ export class VacBansListener extends Listener<'vacBans'> {
       session.bannedGameIds = appids;
     }
 
-    container.logger.info(`${session.username} has ${numBans} VAC ban(s).`);
-    container.logger.info(`• ${appids.join(', ')}.`);
+    container.logger.info(`${session.username} has ${numBans} VAC ban(s)`);
+    container.logger.info(`• ${appids.join(', ')}`);
   }
 }

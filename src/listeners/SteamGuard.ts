@@ -15,14 +15,14 @@ export class SteamGuardListener extends Listener<'steamGuard'> {
 
   public async run(session: Session, domain: string | null, callback: (code: string) => void, lastCodeWrong: boolean): Promise<void> {
     if (lastCodeWrong) {
-      container.logger.info(`${session.username} Steam Guard wrong.`);
+      container.logger.info(`${session.username} Steam Guard wrong`);
       await sleep(10_000);
     }
 
-    container.logger.info(`${session.username} need Steam Guard.`);
+    container.logger.info(`${session.username} need Steam Guard`);
     if (typeof session.secret === 'string') {
       const twoFactorCode = SteamTotp.generateAuthCode(session.secret);
-      container.logger.info(`${session.username} used ${twoFactorCode} as Steam Guard.`);
+      container.logger.info(`${session.username} used ${twoFactorCode} as Steam Guard`);
       callback(twoFactorCode);
     } else {
       const readlineInterface = createInterface({ input: process.stdin, output: process.stdout });
