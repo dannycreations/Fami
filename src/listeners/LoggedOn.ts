@@ -2,7 +2,7 @@ import { container, Listener, Task } from '@vegapunk/core';
 import { requestDefault } from '@vegapunk/request';
 import { Mutex } from '@vegapunk/struct';
 import { chalk } from '@vegapunk/utilities';
-import { attempt, random, remove, shuffle, unionBy } from '@vegapunk/utilities/common';
+import { attempt, isObjectLike, random, remove, shuffle, unionBy } from '@vegapunk/utilities/common';
 import { isErrorLike, Result } from '@vegapunk/utilities/result';
 import { sleep, waitForEach, waitUntil } from '@vegapunk/utilities/sleep';
 import { humanizeDuration } from '@vegapunk/utilities/time';
@@ -43,11 +43,13 @@ export class LoggedOnListener extends Listener<'loggedOn'> {
           return sideTask.unload();
         }
 
-        if (Object.values(session.family).some((value) => value !== 0)) {
+        if (Object.values(session.family).some((value) => value > 0)) {
           session.getState().setEnabled(false);
         } else if (!session.isPlaying) {
           const steamUser = await getSteamUser(session, session.client.steamID!);
-          session.getState().setEnabled(steamUser.onlineState === 'offline');
+          if (isObjectLike(steamUser)) {
+            session.getState().setEnabled(steamUser.onlineState === 'offline');
+          }
         }
 
         if (clientConfig.fetchFreeGames || session.fetchFreeGames) {

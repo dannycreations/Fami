@@ -96,7 +96,7 @@ export class Session {
 
     this.sessionID = uniqueId();
     this.store = new OfflineStore({
-      filePath: sessionDir(user.username),
+      filePath: join(process.cwd(), 'sessions', this.username, 'session.json'),
       delay: 60_000 * 10,
       watch: () => this.store.data,
     });
@@ -202,10 +202,6 @@ export class Session {
     this.client.setPersona(hasIds ? Online : Invisible);
     this.client.gamesPlayed(ids);
   }
-}
-
-function sessionDir(username: string): string {
-  return join(process.cwd(), 'sessions', username, 'session.json');
 }
 
 export interface UserContext {

@@ -1,5 +1,4 @@
 import { container, Listener } from '@vegapunk/core';
-import { Mutex } from '@vegapunk/struct';
 import { chalk } from '@vegapunk/utilities';
 import SteamUser from 'steam-user';
 
@@ -15,8 +14,7 @@ export class UserListener extends Listener<'user'> {
     });
   }
 
-  private readonly runMutex = new Mutex();
-  public async run(session: Session, sid: NonNullable<SteamUser['steamID']>, user: UserStatus): Promise<void> {
+  public run(session: Session, sid: NonNullable<SteamUser['steamID']>, user: UserStatus): void {
     const userId = sid.toString();
     if (session.steamID === userId || typeof session.family[userId] !== 'number') {
       return;
@@ -25,21 +23,16 @@ export class UserListener extends Listener<'user'> {
     const userPersona = user.persona_state ?? SteamUser.EPersonaState.Offline;
     const isUserOffline = OFFLINE_STATE.includes(userPersona);
 
-    await this.runMutex.acquire();
-    try {
-      if (session.isEnabled && !isUserOffline) {
-        session.getState().setEnabled(false);
-        session.gamesPlayed([]);
+    if (session.isEnabled && !isUserOffline) {
+      session.getState().setEnabled(false);
+      session.gamesPlayed([]);
 
-        const playerName = user.player_name || 'FamilyMember';
-        container.logger.info(chalk`{yellow ${session.username} sleeping, reason: ${playerName} online.}`);
-      }
+      const playerName = user.player_name || 'FamilyMember';
+      container.logger.info(chalk`{yellow ${session.username} sleeping, reason: family member ${playerName} is now online.}`);
+    }
 
-      if (session.family[userId] === -1 || user.persona_state !== undefined) {
-        session.family[userId] = userPersona;
-      }
-    } finally {
-      this.runMutex.release();
+    if (session.family[userId] === -1 || user.persona_state !== undefined) {
+      session.family[userId] = userPersona;
     }
   }
 }
