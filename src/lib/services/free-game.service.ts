@@ -115,7 +115,7 @@ export async function registerFreeGames(session: Session): Promise<void> {
 
       const result = await Result.fromAsync(async () => {
         await session.client.requestFreeLicense([...gameIdsToRegister]);
-        const message = `${gamesToRegister.length}/${session.freeGameList.length}/${session.lastPage} new games.`;
+        const message = `${gamesToRegister.length}/${session.freeGameList.length}/${session.lastPage} new games`;
         container.logger.info(`${session.username} added ${message}`);
 
         remove(session.freeGameList, (game) => gameIdsToRegister.has(game.appid));

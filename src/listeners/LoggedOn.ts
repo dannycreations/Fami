@@ -25,7 +25,7 @@ export class LoggedOnListener extends Listener<'loggedOn'> {
     container.logger.info(chalk`{bold.yellow ${session.username} logged on!}`);
 
     await scanGames(session);
-    container.logger.info(`${session.username} owns ${session.ownedGameList.length} game(s)`);
+    container.logger.info(`${session.username} owns ${session.ownedGameList.length} games`);
 
     let nextIdleTime = 0;
     let nextGameRefreshTime = Date.now() + clientConfig.refreshGames;
