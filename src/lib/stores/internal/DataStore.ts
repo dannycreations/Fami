@@ -76,17 +76,13 @@ export abstract class DataStore<T extends object, O extends object = object> {
       return;
     }
 
-    const currentTimeMs = Date.now();
-    const isWaiting = this.data.__updatedAt + this.delayMs > currentTimeMs;
-
-    if (!force && isWaiting) {
+    const currentData = JSON.stringify(this.data);
+    if (!force && currentData === this.previousData) {
       return;
     }
 
-    const currentData = JSON.stringify(this.data);
-    const isUnchanged = currentData === this.previousData;
-
-    if (!force && isWaiting && isUnchanged) {
+    const currentTimeMs = Date.now();
+    if (!force && this.data.__updatedAt + this.delayMs > currentTimeMs) {
       return;
     }
 

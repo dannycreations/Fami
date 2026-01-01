@@ -93,6 +93,8 @@ export class Session {
     this.secret = user.secret;
     this.family = Object.fromEntries((user.family ?? []).map((r) => [r, -1]));
     this.fetchFreeGames = user.fetchFreeGames;
+    this.whitelistGameIds = user.whitelistGameIds ?? [];
+    this.blacklistGameIds = user.blacklistGameIds ?? [];
 
     this.sessionID = uniqueId();
     this.store = new OfflineStore({

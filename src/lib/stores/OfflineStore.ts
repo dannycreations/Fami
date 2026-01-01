@@ -21,7 +21,9 @@ export class OfflineStore<T extends object> extends DataStore<T> {
   }
 
   protected async _writeFile(): Promise<void> {
+    const tempPath = `${this.filePath}.tmp`;
+    await writeFile(tempPath, JSON.stringify(this.data));
     await rename(this.filePath, `${this.filePath}.bak`).catch(Boolean);
-    await writeFile(this.filePath, JSON.stringify(this.data));
+    await rename(tempPath, this.filePath);
   }
 }

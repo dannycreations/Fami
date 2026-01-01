@@ -23,14 +23,21 @@ export class ErrorListener extends Listener<'error'> {
     session.logOff();
     container.logger.info(error, chalk`{red ${session.username} disconnected.}`);
 
-    if (error.message === 'AccessDenied') {
-      userConfig.refreshToken = undefined;
-    } else if (error.message === 'RateLimitExceeded') {
-      await sleep(clientConfig.refreshGames);
-    } else if (['LoggedInElsewhere', 'LogonSessionReplaced'].includes(error.message)) {
-      await sleep(60_000 * 10);
-    } else if (['NoConnection', 'ServiceUnavailable'].includes(error.message)) {
-      await waitForConnection();
+    switch (error.message) {
+      case 'AccessDenied':
+        userConfig.refreshToken = undefined;
+        break;
+      case 'RateLimitExceeded':
+        await sleep(clientConfig.refreshGames);
+        break;
+      case 'LoggedInElsewhere':
+      case 'LogonSessionReplaced':
+        await sleep(600_000); // 10 minutes
+        break;
+      case 'NoConnection':
+      case 'ServiceUnavailable':
+        await waitForConnection();
+        break;
     }
 
     container.logger.info(chalk`{yellow ${userConfig.username} relogged.}`);

@@ -7,7 +7,11 @@ export async function getSteamUser(session: Session, id: NonNullable<SteamUser['
     const timeoutId = setTimeout(() => resolve(null), 10_000);
     session.web.getSteamUser(id, (err, user) => {
       clearTimeout(timeoutId);
-      resolve((err as any) ?? user);
+      if (err) {
+        resolve(null);
+        return;
+      }
+      resolve(user);
     });
   });
 }
