@@ -9,6 +9,8 @@ import SteamCommunity from 'steamcommunity';
 
 import { OfflineStore } from '../stores/OfflineStore';
 
+import type { Vegapunk } from '@vegapunk/core';
+
 interface SessionState {
   readonly logged: boolean;
   readonly enabled: boolean;
@@ -20,21 +22,21 @@ interface SessionState {
 }
 
 export class Session {
-  public static async login(user: UserContext): Promise<void> {
+  public static async login(client: Vegapunk, user: UserContext): Promise<void> {
     await waitForConnection();
 
-    const existing = Session.sessions.get(user.username);
+    const existing = client.sessions.get(user.username);
     if (existing) {
       existing.logOff();
     }
 
-    const session = new Session(user);
-    Session.sessions.set(user.username, session);
+    const session = new Session(client, user);
+    client.sessions.set(user.username, session);
     await session.logOn();
   }
 
-  private static readonly sessions = new Map<string, Session>();
-
+  @SetProperty(true)
+  public readonly parent: Vegapunk;
   @SetProperty(true)
   public readonly steamID: string;
   @SetProperty(true)
@@ -86,7 +88,8 @@ export class Session {
   public refreshToken?: string;
   private timeout?: NodeJS.Timeout;
 
-  public constructor(user: UserContext) {
+  public constructor(client: Vegapunk, user: UserContext) {
+    this.parent = client;
     this.steamID = user.id;
     this.username = user.username;
     this.password = user.password;
@@ -121,7 +124,7 @@ export class Session {
 
     this.timeout = setTimeout(() => {
       this.logOff();
-      Session.login(user);
+      Session.login(this.parent, user);
     }, 60_000);
   }
 
@@ -190,8 +193,8 @@ export class Session {
     setLogged(false);
     setEnabled(false);
 
-    if (Session.sessions.get(this.username) === this) {
-      Session.sessions.delete(this.username);
+    if (this.parent.sessions.get(this.username) === this) {
+      this.parent.sessions.delete(this.username);
     }
 
     this.store.dispose();

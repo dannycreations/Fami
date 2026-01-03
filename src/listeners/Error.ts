@@ -1,7 +1,6 @@
 import { container, Listener } from '@vegapunk/core';
 import { waitForConnection } from '@vegapunk/request';
 import { chalk } from '@vegapunk/utilities';
-import { cloneDeep } from '@vegapunk/utilities/common';
 import { sleep } from '@vegapunk/utilities/sleep';
 import { EResult } from 'steam-user';
 
@@ -17,15 +16,13 @@ export class ErrorListener extends Listener<'error'> {
 
   public async run(session: Session, error: Error & { eresult: EResult }): Promise<void> {
     const clientConfig = this.container.client.config;
-    const userConfig = cloneDeep(clientConfig.users.find((user) => user.username === session.username)!);
-
     session.logOff();
     container.logger.info(error, chalk`{red ${session.username} disconnected}`);
 
     switch (error.eresult) {
       case EResult.AccessDenied:
       case EResult.InvalidPassword:
-        userConfig.refreshToken = undefined;
+        this.container.client.updateUser(session.username, { refreshToken: undefined });
         break;
       case EResult.RateLimitExceeded:
         // At least 30 minutes for rate limits
@@ -42,8 +39,9 @@ export class ErrorListener extends Listener<'error'> {
         break;
     }
 
+    const userConfig = clientConfig.users.find((user) => user.username === session.username)!;
     container.logger.info(chalk`{yellow ${userConfig.username} relogged}`);
     await sleep(10_000);
-    await Session.login(userConfig);
+    await Session.login(this.container.client, userConfig);
   }
 }

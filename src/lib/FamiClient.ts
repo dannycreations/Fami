@@ -11,6 +11,8 @@ import { Session } from './struct/Session';
 import type { UserContext } from './struct/Session';
 
 export class FamiClient extends Vegapunk {
+  public override readonly sessions = new Map<string, Session>();
+
   private readonly store: OfflineStore<ConfigContext>;
 
   public constructor() {
@@ -43,7 +45,7 @@ export class FamiClient extends Vegapunk {
     this.store.setDelay(this.config.refreshGames);
 
     await waitUntil(() => !!this.config);
-    await Promise.all(this.config.users.map(Session.login));
+    await Promise.all(this.config.users.map((user) => Session.login(this, user)));
 
     let lastCheckedDay: number | undefined = undefined;
     await Task.createTask({
@@ -69,6 +71,13 @@ export class FamiClient extends Vegapunk {
     super.destroy();
     killApp();
   }
+
+  public override updateUser(username: string, data: Partial<UserContext>): void {
+    const userIndex = this.config.users.findIndex((user) => user.username === username);
+    if (userIndex !== -1) {
+      Object.assign(this.config.users[userIndex], data);
+    }
+  }
 }
 
 export interface ConfigContext {
@@ -93,6 +102,8 @@ declare module '@vegapunk/core' {
 
   interface Vegapunk {
     readonly config: ConfigContext;
+    readonly sessions: Map<string, Session>;
+    updateUser(username: string, data: Partial<UserContext>): void;
   }
 
   interface ClientEvents {

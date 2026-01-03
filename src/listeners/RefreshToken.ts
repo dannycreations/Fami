@@ -11,8 +11,6 @@ export class RefreshTokenListener extends Listener<'refreshToken'> {
   }
 
   public run(session: Session, refreshToken: string): void {
-    const clientConfig = this.container.client.config;
-    const userConfig = clientConfig.users.find((user) => user.username === session.username)!;
-    userConfig.refreshToken = refreshToken;
+    this.container.client.updateUser(session.username, { refreshToken });
   }
 }

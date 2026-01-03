@@ -18,8 +18,7 @@ export class LoggedOnListener extends Listener<'loggedOn'> {
 
   public async run(session: Session): Promise<void> {
     const clientConfig = container.client.config;
-    const userConfig = clientConfig.users.find((user) => user.username === session.username)!;
-    Object.assign(userConfig, { id: session.client.steamID!.toString() });
+    this.container.client.updateUser(session.username, { id: session.client.steamID!.toString() });
 
     session.client.setPersona(SteamUser.EPersonaState.Invisible);
     container.logger.info(chalk`{bold.yellow ${session.username} logged on!}`);
