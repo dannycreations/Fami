@@ -55,8 +55,10 @@ export async function collectFreeGames(session: Session): Promise<void> {
                 return;
               }
 
-              session.freeGameIds.push(appid);
-              session.freeGameList.push({ name: common.name, appid });
+              if (!session.freeGameIds.includes(appid)) {
+                session.freeGameIds.push(appid);
+                session.freeGameList.push({ name: common.name, appid });
+              }
             });
           }
         }

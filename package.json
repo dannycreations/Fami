@@ -11,9 +11,9 @@
     "build": "npm run clean && tsc",
     "check": "tsc --noEmit",
     "format": "prettier --write .",
-    "clean": "pnpx rimraf -g \"*.tsbuildinfo\" \"dist\"",
-    "clean:node": "pnpx rimraf -g \"*-lock*\" \"node_modules\"",
-    "update": "pnpx npm-check-updates -u -x @octokit/rest,@types/node",
+    "clean": "rimraf -g \"*.tsbuildinfo\" \"dist\"",
+    "clean:node": "rimraf -g \"*-lock*\" \"node_modules\"",
+    "update": "npm-check-updates -u -x @octokit/rest,@types/node",
     "prepare": "husky"
   },
   "dependencies": {
@@ -35,7 +35,9 @@
     "@types/steam-user": "^5.1.1",
     "@types/steamcommunity": "^3.43.8",
     "husky": "^9.1.7",
+    "npm-check-updates": "^19.2.1",
     "prettier": "^3.7.4",
+    "rimraf": "^6.1.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },

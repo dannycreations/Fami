@@ -10,6 +10,8 @@ import { Session } from './struct/Session';
 
 import type { UserContext } from './struct/Session';
 
+export const USER_OFFLINE_STATE = [SteamUser.EPersonaState.Offline, SteamUser.EPersonaState.Invisible] as const;
+
 export class FamiClient extends Vegapunk {
   public override readonly sessions = new Map<string, Session>();
 

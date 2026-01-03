@@ -2,11 +2,10 @@ import { container, Listener } from '@vegapunk/core';
 import { chalk } from '@vegapunk/utilities';
 import SteamUser from 'steam-user';
 
+import { USER_OFFLINE_STATE } from '../lib/FamiClient';
 import { Session } from '../lib/struct/Session';
 
 import type { UserStatus } from '../lib/FamiClient';
-
-const OFFLINE_STATE = [SteamUser.EPersonaState.Offline, SteamUser.EPersonaState.Invisible] as const;
 
 export class UserListener extends Listener<'user'> {
   public constructor(context: Listener.LoaderContext) {
@@ -22,8 +21,12 @@ export class UserListener extends Listener<'user'> {
       return;
     }
 
+    if (session.family[userId] !== -1 && user.persona_state === null) {
+      return;
+    }
+
     const userPersona = user.persona_state ?? SteamUser.EPersonaState.Offline;
-    const isUserOffline = OFFLINE_STATE.includes(userPersona);
+    const isUserOffline = USER_OFFLINE_STATE.includes(userPersona);
 
     if (session.isEnabled && !isUserOffline) {
       session.getState().setEnabled(false);

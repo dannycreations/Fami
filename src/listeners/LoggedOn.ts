@@ -61,7 +61,7 @@ export class LoggedOnListener extends Listener<'loggedOn'> {
           nextGameRefreshTime = Date.now() + clientConfig.refreshGames;
         }
 
-        if (nextIdleTime < Date.now()) {
+        if (session.isEnabled && nextIdleTime < Date.now()) {
           nextIdleTime = startIdleGames(session);
         }
       },
