@@ -17,9 +17,7 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@vegapunk/core": "^1.0.55",
     "@vegapunk/request": "^1.0.44",
-    "@vegapunk/struct": "^1.0.17",
     "@vegapunk/utilities": "^1.0.78",
     "dotenv": "^17.2.3",
     "effect": "^3.19.14",
@@ -37,7 +35,7 @@
     "@types/steam-user": "^5.1.1",
     "@types/steamcommunity": "^3.43.8",
     "husky": "^9.1.7",
-    "npm-check-updates": "^19.3.0",
+    "npm-check-updates": "^19.3.1",
     "prettier": "^3.7.4",
     "rimraf": "^6.1.2",
     "tsx": "^4.21.0",
