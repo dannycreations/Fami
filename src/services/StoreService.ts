@@ -2,17 +2,9 @@ import { mkdir, readFile, rename, writeFile } from 'fs/promises';
 import { dirname } from 'node:path';
 import { parseJsonc } from '@vegapunk/utilities';
 import { defaultsDeep } from '@vegapunk/utilities/common';
-import { Effect, Fiber, Ref, Schema } from 'effect';
+import { Effect, Fiber, Ref, Schedule, Schema } from 'effect';
 
-export class StoreError extends Error {
-  readonly _tag = 'StoreError';
-  constructor(
-    override readonly message: string,
-    readonly originalError?: unknown,
-  ) {
-    super(message);
-  }
-}
+import { StoreError } from '../core/errors';
 
 export interface Store<T> {
   readonly get: Effect.Effect<T>;
@@ -51,7 +43,7 @@ export const makeStore = <A extends object, I, R>(
           throw error;
         }
       },
-      catch: (error) => new StoreError(`Failed to load store: ${filePath}`, error),
+      catch: (error) => new StoreError({ message: `Failed to load store: ${filePath}`, originalError: error }),
     });
 
     const save = (data: A) =>
@@ -61,49 +53,48 @@ export const makeStore = <A extends object, I, R>(
           await mkdir(dir, { recursive: true });
           const tempPath = `${filePath}.tmp`;
           await writeFile(tempPath, JSON.stringify(data));
-          await rename(filePath, `${filePath}.bak`).catch(Boolean);
+          await rename(filePath, `${filePath}.bak`).catch(() => {});
           await rename(tempPath, filePath);
         },
-        catch: (error) => new StoreError(`Failed to save store: ${filePath}`, error),
+        catch: (error) => new StoreError({ message: `Failed to save store: ${filePath}`, originalError: error }),
       });
 
     const rawData = yield* _(load);
     const validatedData = yield* _(
       decode(rawData),
-      Effect.mapError((e) => new StoreError(`Validation failed for store: ${filePath}`, e)),
+      Effect.mapError((e) => new StoreError({ message: `Validation failed for store: ${filePath}`, originalError: e })),
     );
 
     yield* _(Ref.set(dataRef, validatedData));
 
     const autoSaveLoop = Effect.gen(function* (_) {
-      while (true) {
-        const delay = yield* _(Ref.get(delayRef));
-        yield* _(Effect.sleep(`${delay} millis`));
+      const delay = yield* _(Ref.get(delayRef));
+      yield* _(Effect.sleep(`${delay} millis`));
 
-        const isDirty = yield* _(Ref.get(isDirtyRef));
-        if (isDirty) {
-          const data = yield* _(Ref.get(dataRef));
-          yield* _(save(data));
-          yield* _(Ref.set(isDirtyRef, false));
-        }
+      const isDirty = yield* _(Ref.get(isDirtyRef));
+      if (isDirty) {
+        const data = yield* _(Ref.get(dataRef));
+        yield* _(
+          save(data),
+          Effect.tap(() => Ref.set(isDirtyRef, false)),
+          Effect.catchAll((error) => Effect.logError(`Store auto-save failed for ${filePath}`, error)),
+        );
       }
-    }).pipe(Effect.catchAll((error) => Effect.logError('Store auto-save failed', error)));
+    }).pipe(Effect.repeat(Schedule.forever));
 
     const autoSaveFiber = yield* _(Effect.forkDaemon(autoSaveLoop));
 
+    const triggerUpdate = (f: (data: A) => A) =>
+      Effect.gen(function* (_) {
+        yield* _(Ref.update(dataRef, f));
+        yield* _(Ref.set(isDirtyRef, true));
+      });
+
     return {
       get: Ref.get(dataRef),
-      set: (partial: Partial<A>) =>
-        Effect.gen(function* (_) {
-          yield* _(Ref.update(dataRef, (current) => ({ ...current, ...partial })));
-          yield* _(Ref.set(isDirtyRef, true));
-        }),
-      update: (f: (data: A) => A) =>
-        Effect.gen(function* (_) {
-          yield* _(Ref.update(dataRef, f));
-          yield* _(Ref.set(isDirtyRef, true));
-        }),
-      setDelay: (delayMs: number) => Ref.set(delayRef, Math.max(1000, delayMs)),
+      set: (partial) => triggerUpdate((current) => ({ ...current, ...partial })),
+      update: (f) => triggerUpdate(f),
+      setDelay: (delayMs) => Ref.set(delayRef, Math.max(1000, delayMs)),
       dispose: Effect.gen(function* (_) {
         yield* _(Fiber.interrupt(autoSaveFiber));
         const isDirty = yield* _(Ref.get(isDirtyRef));

@@ -1,4 +1,5 @@
 import { Schema } from 'effect';
+import SteamUser from 'steam-user';
 
 export const GameContext = Schema.Struct({
   name: Schema.String,
@@ -30,6 +31,16 @@ export const ConfigContext = Schema.Struct({
 });
 export type ConfigContext = Schema.Schema.Type<typeof ConfigContext>;
 
+export const INITIAL_CONFIG: ConfigContext = {
+  refreshGames: 3_600_000,
+  fetchFreeGames: false,
+  skipBannedGames: true,
+  whitelistGameIds: [],
+  blacklistGameIds: [],
+  family: [],
+  users: [],
+};
+
 export const SessionData = Schema.Struct({
   lastLoop: Schema.Number,
   lastPage: Schema.Number,
@@ -42,15 +53,21 @@ export const SessionData = Schema.Struct({
 });
 export type SessionData = Schema.Schema.Type<typeof SessionData>;
 
+export const INITIAL_SESSION_DATA: SessionData = {
+  lastLoop: 0,
+  lastPage: 1,
+  freeGameIds: [],
+  freeGameList: [],
+  freeGameLength: 0,
+  forceRegister: false,
+  ownedGameList: [],
+  bannedGameIds: [],
+};
+
 export const UserStatus = Schema.Struct({
   persona_state: Schema.NullOr(Schema.Number),
   player_name: Schema.NullOr(Schema.String),
 });
 export type UserStatus = Schema.Schema.Type<typeof UserStatus>;
 
-export const SessionState = Schema.Struct({
-  logged: Schema.Boolean,
-  enabled: Schema.Boolean,
-  playing: Schema.Boolean,
-});
-export type SessionState = Schema.Schema.Type<typeof SessionState>;
+export const USER_OFFLINE_STATE = [SteamUser.EPersonaState.Offline, SteamUser.EPersonaState.Invisible] as const;
