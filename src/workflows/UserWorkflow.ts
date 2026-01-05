@@ -1,5 +1,4 @@
 import { join } from 'node:path';
-import { waitForConnection } from '@vegapunk/request';
 import { Effect, Ref, Schedule, Stream } from 'effect';
 import SteamUser from 'steam-user';
 
@@ -21,8 +20,6 @@ const whenLoggedOn =
 
 const runLogin = (user: UserContext, steamClient: SteamClient) =>
   Effect.gen(function* (_) {
-    yield* _(Effect.tryPromise(() => waitForConnection()));
-
     const loginDetails = user.refreshToken ? { refreshToken: user.refreshToken } : { accountName: user.username, password: user.password };
 
     yield* _(Effect.logInfo(`${user.username} logging in with ${user.refreshToken ? 'refresh token' : 'password'}`));

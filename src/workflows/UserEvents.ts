@@ -1,5 +1,4 @@
 import { createInterface } from 'node:readline';
-import { waitForConnection } from '@vegapunk/request';
 import { chalk } from '@vegapunk/utilities';
 import { Effect, Ref } from 'effect';
 import SteamTotp from 'steam-totp';
@@ -77,42 +76,42 @@ export const handleSteamGuard = (user: UserContext, event: Extract<SteamEvent, {
 
 export const handleError = (user: UserContext, error: Error & { eresult?: number }, configStore: Store<ConfigContext>, state: UserWorkflowState) =>
   Effect.gen(function* (_) {
-    yield* _(Effect.logError(chalk`{red ${user.username} disconnected}`, error));
     yield* _(state.reset());
+    yield* _(Effect.logError(chalk`{red ${user.username} disconnected}`, error));
 
-    if (error.eresult) {
-      switch (error.eresult) {
-        case SteamUser.EResult.RateLimitExceeded: {
-          const cfg = yield* _(configStore.get);
-          const sleepMs = Math.max(cfg.refreshGames, RATE_LIMIT_MIN_MS);
-          yield* _(Effect.logWarning(`${user.username} Rate Limit Exceeded. Sleeping for ${sleepMs / 60000}m...`));
-          yield* _(Effect.sleep(`${sleepMs} millis`));
-          break;
-        }
-        case SteamUser.EResult.LoggedInElsewhere:
-        case SteamUser.EResult.LogonSessionReplaced:
-        case SteamUser.EResult.AlreadyLoggedInElsewhere:
-          yield* _(Effect.logWarning(`${user.username} Logged in elsewhere. Sleeping for 10m...`));
-          yield* _(Effect.sleep('10 minutes'));
-          break;
-        case SteamUser.EResult.AccessDenied:
-        case SteamUser.EResult.InvalidPassword:
-          yield* _(Effect.logError(`${user.username} Invalid credentials/token. Clearing refresh token.`));
-          yield* _(
-            configStore.update((cfg) => ({
-              ...cfg,
-              users: cfg.users.map((u) => (u.username === user.username ? { ...u, refreshToken: undefined } : u)),
-            })),
-          );
-          break;
-        case SteamUser.EResult.NoConnection:
-        case SteamUser.EResult.ServiceUnavailable:
-          yield* _(Effect.tryPromise(() => waitForConnection()));
-          break;
+    switch (error.eresult) {
+      case SteamUser.EResult.RateLimitExceeded: {
+        const cfg = yield* _(configStore.get);
+        const sleepMs = Math.max(cfg.refreshGames, RATE_LIMIT_MIN_MS);
+        yield* _(Effect.logWarning(`${user.username} Rate Limit Exceeded. Sleeping for ${sleepMs / 60000}m...`));
+        yield* _(Effect.sleep(`${sleepMs} millis`));
+        break;
+      }
+      case SteamUser.EResult.LoggedInElsewhere:
+      case SteamUser.EResult.LogonSessionReplaced:
+      case SteamUser.EResult.AlreadyLoggedInElsewhere: {
+        yield* _(Effect.logWarning(`${user.username} Logged in elsewhere. Sleeping for 10m...`));
+        yield* _(Effect.sleep('10 minutes'));
+        break;
+      }
+      case SteamUser.EResult.AccessDenied:
+      case SteamUser.EResult.InvalidPassword: {
+        yield* _(Effect.logError(`${user.username} Invalid credentials/token. Clearing refresh token.`));
+        yield* _(
+          configStore.update((cfg) => ({
+            ...cfg,
+            users: cfg.users.map((u) => (u.username === user.username ? { ...u, refreshToken: undefined } : u)),
+          })),
+        );
+        break;
+      }
+      case SteamUser.EResult.NoConnection:
+      case SteamUser.EResult.ServiceUnavailable: {
+        break;
       }
     }
 
-    yield* _(Effect.logInfo(chalk`{yellow ${user.username} relogged}`));
+    yield* _(Effect.logWarning(chalk`{yellow ${user.username} session ended, restarting...}`));
     yield* _(Effect.fail(error));
   });
 
@@ -123,10 +122,11 @@ export const handleVacBans = (
   sessionStore: Store<SessionData>,
 ) =>
   Effect.gen(function* (_) {
-    const config = yield* _(configStore.get);
     if (event.numBans > 0) {
       yield* _(Effect.logInfo(chalk`{bold.red ${user.username} has ${event.numBans} VAC ban(s)}`));
       yield* _(Effect.logInfo(`- ${event.appids.join(', ').trim()}`));
+
+      const config = yield* _(configStore.get);
       if (config.skipBannedGames) {
         yield* _(sessionStore.update((data) => ({ ...data, bannedGameIds: event.appids })));
       }

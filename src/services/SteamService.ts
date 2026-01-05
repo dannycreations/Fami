@@ -9,7 +9,6 @@ import { UserStatus } from '../core/schemas';
 
 export type SteamEvent =
   | { readonly type: 'loggedOn' }
-  | { readonly type: 'webSession'; readonly sessionID: string; readonly cookies: string[] }
   | { readonly type: 'error'; readonly error: Error & { eresult?: number } }
   | { readonly type: 'refreshToken'; readonly token: string }
   | {
@@ -59,9 +58,8 @@ export const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClien
     );
 
     const eventStream = Stream.async<SteamEvent>((emit) => {
-      const onWebSession = (sessionID: string, cookies: string[]) => {
+      const onWebSession = (_sessionID: string, cookies: string[]) => {
         community.setCookies(cookies);
-        emit.single({ type: 'webSession', sessionID, cookies });
       };
       const onLoggedOn = () => {
         emit.single({ type: 'loggedOn' });
@@ -127,6 +125,7 @@ export const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClien
               ),
             );
           };
+
           user.once('loggedOn', onLoggedOn);
           user.once('error', onError);
           user.logOn(details);
