@@ -155,12 +155,14 @@ export const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClien
       getUserOwnedApps: (steamID, options) =>
         Effect.tryPromise({
           try: () => user.getUserOwnedApps(steamID, options),
-          catch: (error: any) =>
-            new SteamError({
-              message: error.message || 'Failed to get user owned apps',
+          catch: (error) => {
+            const err = error as Error & { eresult?: number };
+            return new SteamError({
+              message: err.message || 'Failed to get user owned apps',
               originalError: error,
-              eresult: error.eresult,
-            }),
+              eresult: err.eresult,
+            });
+          },
         }).pipe(
           Effect.timeout('1 minute'),
           Effect.catchTag('TimeoutException', () => Effect.fail(new SteamError({ message: TIMEOUT_MESSAGE }))),
@@ -168,22 +170,26 @@ export const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClien
       getProductInfo: (apps, packages) =>
         Effect.tryPromise({
           try: () => user.getProductInfo(apps, packages),
-          catch: (error: any) =>
-            new SteamError({
+          catch: (error) => {
+            const err = error as Error & { eresult?: number };
+            return new SteamError({
               message: 'Failed to get product info',
               originalError: error,
-              eresult: error?.eresult,
-            }),
+              eresult: err?.eresult,
+            });
+          },
         }),
       requestFreeLicense: (appIDs) =>
         Effect.tryPromise({
           try: () => user.requestFreeLicense(appIDs),
-          catch: (error: any) =>
-            new SteamError({
+          catch: (error) => {
+            const err = error as Error & { eresult?: number };
+            return new SteamError({
               message: 'Failed to request free license',
               originalError: error,
-              eresult: error?.eresult,
-            }),
+              eresult: err?.eresult,
+            });
+          },
         }),
     };
   });
