@@ -8,5 +8,5 @@
     "target": "esnext",
     "moduleResolution": "nodenext"
   },
-  "include": ["src", "src-effect"]
+  "include": ["src"]
 }

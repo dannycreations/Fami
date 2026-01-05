@@ -99,7 +99,7 @@ const handleSteamEvent = (
         break;
 
       case 'error':
-        yield* _(Effect.logError(chalk`{red ${user.username} disconnected: ${event.error.message}}`));
+        yield* _(Effect.logError(chalk`{red ${user.username} disconnected}`, event.error));
         yield* _(Ref.set(state.isLoggedOn, false));
         yield* _(Ref.set(state.isEnabled, false));
 
@@ -130,7 +130,6 @@ const handleSteamEvent = (
               break;
             case SteamUser.EResult.NoConnection:
             case SteamUser.EResult.ServiceUnavailable:
-              yield* _(Effect.logWarning(`${user.username} connection issue. Waiting for connection...`));
               yield* _(Effect.tryPromise(() => waitForConnection()));
               break;
           }
