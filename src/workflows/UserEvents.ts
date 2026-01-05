@@ -113,10 +113,6 @@ export const handleError = (user: UserContext, error: Error & { eresult?: number
     }
 
     yield* _(Effect.logInfo(chalk`{yellow ${user.username} relogged}`));
-    yield* _(Effect.sleep(DEFAULT_SLEEP_DURATION));
-
-    yield* _(state.reset());
-
     yield* _(Effect.fail(error));
   });
 

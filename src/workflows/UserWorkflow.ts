@@ -15,12 +15,8 @@ const whenLoggedOn =
   (state: UserWorkflowState) =>
   <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     Effect.gen(function* (_) {
-      const logged = yield* _(Ref.get(state.isLoggedOn));
-      if (logged) {
-        yield* _(effect);
-      } else {
-        yield* _(Effect.sleep('10 seconds'));
-      }
+      yield* _(Ref.get(state.isLoggedOn), Effect.repeat(Schedule.spaced('1 second').pipe(Schedule.whileInput((logged) => !logged))));
+      return yield* _(effect);
     });
 
 const runLogin = (user: UserContext, steamClient: SteamClient) =>
@@ -102,11 +98,10 @@ const runPresenceAndIdle = (user: UserContext, steamClient: SteamClient, session
       Effect.gen(function* (_) {
         const enabled = yield* _(Ref.get(state.isEnabled));
         const playing = yield* _(Ref.get(state.isPlaying));
-        const now = Date.now();
         const nextIdleTime = yield* _(Ref.get(nextIdleTimeRef));
 
         if (enabled) {
-          if (now > nextIdleTime) {
+          if (Date.now() > nextIdleTime) {
             const nextTime = yield* _(startIdleGames(sessionStore, user.username));
             yield* _(Ref.set(nextIdleTimeRef, nextTime));
             yield* _(Ref.set(state.isPlaying, true));
@@ -186,12 +181,7 @@ export const runUserWorkflow = (user: UserContext, configStore: Store<ConfigCont
       yield* _(
         makeUserSession(user, configStore, registrationSemaphore),
         Effect.provide(SteamClientLive(sessionDir)),
-        Effect.retry(
-          Schedule.exponential('5 seconds').pipe(
-            Schedule.union(Schedule.spaced('1 minute')),
-            Schedule.tapInput(() => Effect.logInfo(`Retrying workflow for ${user.username}...`)),
-          ),
-        ),
+        Effect.retry(Schedule.spaced('10 seconds').pipe(Schedule.tapInput(() => Effect.logInfo(`Retrying workflow for ${user.username}...`)))),
       );
     }),
   );

@@ -135,7 +135,10 @@ export const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClien
             user.removeListener('loggedOn', onLoggedOn);
             user.removeListener('error', onError);
           });
-        }),
+        }).pipe(
+          Effect.timeout('60 seconds'),
+          Effect.catchTag('TimeoutException', () => Effect.fail(new SteamError({ message: 'Login timed out' }))),
+        ),
       logOff: Effect.sync(() => user.logOff()),
       setPersona: (state) => Effect.sync(() => user.setPersona(state)),
       gamesPlayed: (appIds) => Effect.sync(() => user.gamesPlayed(appIds)),
@@ -190,7 +193,10 @@ export const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClien
               eresult: err?.eresult,
             });
           },
-        }),
+        }).pipe(
+          Effect.timeout('30 seconds'),
+          Effect.catchTag('TimeoutException', () => Effect.fail(new SteamError({ message: 'Request free license timed out' }))),
+        ),
     };
   });
 };
