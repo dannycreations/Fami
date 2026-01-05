@@ -44,9 +44,9 @@ export class Session {
   @SetProperty(true)
   public readonly password: string;
   @SetProperty(true)
-  public readonly secret: string;
+  public readonly secret?: string;
   public readonly family: { [k: string]: number };
-  public readonly fetchFreeGames: boolean;
+  public readonly fetchFreeGames?: boolean;
 
   public readonly ownedGameList: GameContext[] = [];
   public readonly blacklistGameIds: number[] = [];
