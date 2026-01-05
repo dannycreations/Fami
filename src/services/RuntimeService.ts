@@ -29,8 +29,7 @@ export const runWithRestart = <A, E, R>(program: Effect.Effect<A, E, R>, options
             process.exit(1);
           }
 
-          yield* _(Effect.logError('Runtime Error - Restarting...', cause));
-          yield* _(Effect.logInfo(chalk`{bold.cyan System restarting in ${restartDelayMs / 1000} seconds...}`));
+          yield* _(Effect.logInfo(chalk`{bold.yellow System restarting in ${restartDelayMs / 1000} seconds...}`, cause));
           yield* _(Effect.sleep(`${restartDelayMs} millis`));
         }),
       ),

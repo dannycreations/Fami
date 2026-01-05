@@ -89,6 +89,8 @@ export const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClien
       user.on('vacBans', onVacBans);
 
       return Effect.sync(() => {
+        // Suppress late errors
+        user.once('error', () => {});
         user.removeListener('webSession', onWebSession);
         user.removeListener('loggedOn', onLoggedOn);
         user.removeListener('error', onError);

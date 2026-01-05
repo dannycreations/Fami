@@ -63,6 +63,22 @@ const createLogger = (options: LoggerOptions = {}): LoggerPino => {
       level: options.level,
       base: undefined,
       nestedKey: 'payload',
+      hooks: {
+        logMethod(args, method) {
+          // Winston style
+          if (args.length >= 2) {
+            const [arg0, arg1, ...rest] = args;
+            if (typeof arg0 === 'string' && typeof arg1 === 'object') {
+              return method.apply(this, [arg1, arg0, ...rest]);
+            } else if (args.every((r) => typeof r === 'string')) {
+              return method.apply(this, [args.join(' ')]);
+            }
+          }
+
+          // Pino style
+          return method.apply(this, args);
+        },
+      },
     },
     pino.multistream(streams),
   );
@@ -108,18 +124,15 @@ const mapLogLevel = (level: LogLevel.LogLevel): pino.LevelWithSilent => {
 const createEffectLogger = (self: Logger.Logger<unknown, void>, logger: pino.Logger) =>
   Logger.replace(
     self,
-    Logger.make(({ logLevel, message, annotations, cause }) => {
+    Logger.make(({ logLevel, message, cause }) => {
       const level = mapLogLevel(logLevel);
-      const msg = Array.isArray(message) ? message.join(' ') : typeof message === 'string' ? message : JSON.stringify(message);
-      const payload: Record<string, unknown> = {
-        ...Object.fromEntries(annotations),
-      };
+      const payload = Array.isArray(message) ? [...message] : [message];
 
       if (cause && cause._tag !== 'Empty') {
-        payload.cause = cause;
+        payload.push({ cause });
       }
 
-      logger[level](payload, msg);
+      (logger[level] as Function)(...payload);
     }),
   );
 

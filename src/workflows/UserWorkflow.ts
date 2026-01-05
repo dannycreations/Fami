@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { chalk } from '@vegapunk/utilities';
 import { Effect, Ref, Schedule, Stream } from 'effect';
 import SteamUser from 'steam-user';
 
@@ -161,24 +162,23 @@ const makeUserSession = (user: UserContext, configStore: Store<ConfigContext>, r
           handleEvents,
           runGameLoops(user, configStore, sessionStore, registrationSemaphore, state),
           runPresenceAndIdle(user, steamClient, sessionStore, state),
+          runLogin(user, steamClient).pipe(Effect.andThen(Effect.never)),
         ],
         { concurrency: 'unbounded' },
       ),
-      Effect.fork,
     );
-
-    yield* _(runLogin(user, steamClient));
-    yield* _(Effect.never);
   });
 
 export const runUserWorkflow = (user: UserContext, configStore: Store<ConfigContext>, registrationSemaphore: Effect.Semaphore) =>
-  Effect.scoped(
-    Effect.gen(function* (_) {
-      const sessionDir = join(process.cwd(), 'sessions', user.username);
-      yield* _(
-        makeUserSession(user, configStore, registrationSemaphore),
+  Effect.gen(function* (_) {
+    const sessionDir = join(process.cwd(), 'sessions', user.username);
+    yield* _(
+      makeUserSession(user, configStore, registrationSemaphore).pipe(
         Effect.provide(SteamClientLive(sessionDir)),
-        Effect.retry(Schedule.spaced('10 seconds').pipe(Schedule.tapInput(() => Effect.logInfo(`Retrying workflow for ${user.username}...`)))),
-      );
-    }),
-  );
+        Effect.scoped,
+        Effect.retry(
+          Schedule.spaced('10 seconds').pipe(Schedule.tapInput(() => Effect.logInfo(chalk`{yellow Retrying workflow for ${user.username}...}`))),
+        ),
+      ),
+    );
+  });
