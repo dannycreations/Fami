@@ -14,10 +14,7 @@ class RestartRequested extends Data.TaggedError('RestartRequested') {}
 
 const program = Effect.gen(function* (_) {
   const configPath = join(process.cwd(), 'sessions', 'settings.json');
-  const configStore = yield* _(
-    makeStore(configPath, ConfigContext, INITIAL_CONFIG, 60_000),
-    Effect.tap((store) => Effect.addFinalizer(() => store.dispose)),
-  );
+  const configStore = yield* _(makeStore(configPath, ConfigContext, INITIAL_CONFIG, 60_000));
 
   const config = yield* _(configStore.get);
 
@@ -31,20 +28,18 @@ const program = Effect.gen(function* (_) {
   const registrationSemaphore = yield* _(Effect.makeSemaphore(1));
 
   const midnightCheck = Effect.gen(function* (_) {
-    const lastCheckedDay = yield* _(Ref.make(new Date().getDate()));
+    const lastDay = yield* _(Ref.make(new Date().getDate()));
 
-    const check = Effect.gen(function* (_) {
-      const currentDay = new Date().getDate();
-      const lastDay = yield* _(Ref.get(lastCheckedDay));
-
-      if (currentDay !== lastDay) {
-        yield* _(Ref.set(lastCheckedDay, currentDay));
-        yield* _(Effect.logInfo(chalk`{bold.yellow It's midnight time. Restarting app...}`));
-        return yield* _(Effect.fail(new RestartRequested()));
-      }
-    });
-
-    yield* _(Effect.repeat(check, Schedule.spaced('10 seconds')));
+    yield* _(
+      Effect.gen(function* (_) {
+        const currentDay = new Date().getDate();
+        if (currentDay !== (yield* _(Ref.get(lastDay)))) {
+          yield* _(Effect.logInfo(chalk`{bold.yellow It's midnight time. Restarting app...}`));
+          return yield* _(Effect.fail(new RestartRequested()));
+        }
+      }),
+      Effect.repeat(Schedule.spaced('1 minute')),
+    );
   });
 
   yield* _(

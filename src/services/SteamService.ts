@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Schedule, Scope, Stream } from 'effect';
+import { Context, Duration, Effect, Layer, Schedule, Scope, Stream } from 'effect';
 import SteamUser from 'steam-user';
 import SteamCommunity from 'steamcommunity';
 import CSteamUser from 'steamcommunity/classes/CSteamUser';
@@ -44,46 +44,31 @@ export const SteamClient = Context.GenericTag<SteamClient>('@services/SteamClien
 
 const createEventStream = (user: SteamUser, community: SteamCommunity) =>
   Stream.async<SteamEvent>((emit) => {
-    const onWebSession = (_sessionID: string, cookies: string[]) => {
-      community.setCookies(cookies);
-    };
-    const onLoggedOn = () => {
-      emit.single({ type: 'loggedOn' });
-    };
-    const onError = (error: Error & { eresult?: number }) => {
-      emit.single({ type: 'error', error });
-    };
-    const onRefreshToken = (token: string) => {
-      emit.single({ type: 'refreshToken', token });
-    };
-    const onSteamGuard = (domain: string | null, callback: (code: string) => void, lastCodeWrong: boolean) => {
-      emit.single({ type: 'steamGuard', domain, callback, lastCodeWrong });
-    };
-    const onUser = (steamId: NonNullable<SteamUser['steamID']>, user: unknown) => {
-      emit.single({ type: 'user', steamId, user: user as unknown as UserStatus });
-    };
-    const onVacBans = (numBans: number, appids: number[]) => {
-      emit.single({ type: 'vacBans', numBans, appids });
+    const handlers: Record<string, (...args: any[]) => void> = {
+      webSession: (_sessionID: string, cookies: string[]) => community.setCookies(cookies),
+      loggedOn: () => emit.single({ type: 'loggedOn' }),
+      error: (error: Error & { eresult?: number }) => emit.single({ type: 'error', error }),
+      refreshToken: (token: string) => emit.single({ type: 'refreshToken', token }),
+      steamGuard: (domain: string | null, callback: (code: string) => void, lastCodeWrong: boolean) =>
+        emit.single({ type: 'steamGuard', domain, callback, lastCodeWrong }),
+      user: (steamId: NonNullable<SteamUser['steamID']>, user: UserStatus) =>
+        emit.single({
+          type: 'user',
+          steamId,
+          user: {
+            persona_state: user?.persona_state ?? null,
+            player_name: user?.player_name ?? null,
+          },
+        }),
+      vacBans: (numBans: number, appids: number[]) => emit.single({ type: 'vacBans', numBans, appids }),
     };
 
-    user.on('webSession', onWebSession);
-    user.on('loggedOn', onLoggedOn);
-    user.on('error', onError);
-    user.on('refreshToken', onRefreshToken);
-    user.on('steamGuard', onSteamGuard);
-    user.on('user', onUser);
-    user.on('vacBans', onVacBans);
+    Object.entries(handlers).forEach(([event, handler]) => user.on(event as any, handler));
 
     return Effect.sync(() => {
       // Suppress late errors
       user.once('error', () => {});
-      user.removeListener('webSession', onWebSession);
-      user.removeListener('loggedOn', onLoggedOn);
-      user.removeListener('error', onError);
-      user.removeListener('refreshToken', onRefreshToken);
-      user.removeListener('steamGuard', onSteamGuard);
-      user.removeListener('user', onUser);
-      user.removeListener('vacBans', onVacBans);
+      Object.entries(handlers).forEach(([event, handler]) => user.removeListener(event as any, handler));
     });
   }).pipe(
     Stream.tap((event) => Effect.annotateLogs(Effect.logTrace(`Steam Event: ${event.type}`), 'event', JSON.stringify(event))),
@@ -104,6 +89,28 @@ export const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClien
         }),
       ),
     );
+
+    const wrapPromise = <A>(
+      promise: () => Promise<A>,
+      errorMessage: string,
+      timeout: Duration.DurationInput = '30 seconds',
+    ): Effect.Effect<A, SteamError> =>
+      Effect.tryPromise({
+        try: promise,
+        catch: (error) => {
+          const err = error as Error & { eresult?: number };
+          return new SteamError({
+            message: err.message || errorMessage,
+            originalError: error,
+            eresult: err.eresult,
+          });
+        },
+      }).pipe(
+        Effect.timeout(timeout),
+        Effect.catchTag('TimeoutException', () =>
+          Effect.fail(new SteamError({ message: errorMessage.includes('timed out') ? errorMessage : `${errorMessage} timed out` })),
+        ),
+      );
 
     return {
       user,
@@ -138,7 +145,7 @@ export const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClien
             user.removeListener('error', onError);
           });
         }).pipe(
-          Effect.timeout('60 seconds'),
+          Effect.timeout('1 minute'),
           Effect.catchTag('TimeoutException', () => Effect.fail(new SteamError({ message: 'Login timed out' }))),
         ),
       logOff: Effect.sync(() => user.logOff()),
@@ -147,58 +154,15 @@ export const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClien
       getCommunityUser: (id) =>
         Effect.async<CSteamUser | null>((resume) => {
           community.getSteamUser(id, (error, user) => {
-            if (error) {
-              resume(Effect.succeed(null));
-            } else {
-              resume(Effect.succeed(user));
-            }
+            resume(Effect.succeed(error ? null : user));
           });
         }).pipe(
           Effect.timeout('10 seconds'),
           Effect.catchTag('TimeoutException', () => Effect.succeed(null)),
         ),
-      getUserOwnedApps: (steamID, options) =>
-        Effect.tryPromise({
-          try: () => user.getUserOwnedApps(steamID, options),
-          catch: (error) => {
-            const err = error as Error & { eresult?: number };
-            return new SteamError({
-              message: err.message || 'Failed to get user owned apps',
-              originalError: error,
-              eresult: err.eresult,
-            });
-          },
-        }).pipe(
-          Effect.timeout('1 minute'),
-          Effect.catchTag('TimeoutException', () => Effect.fail(new SteamError({ message: TIMEOUT_MESSAGE }))),
-        ),
-      getProductInfo: (apps, packages) =>
-        Effect.tryPromise({
-          try: () => user.getProductInfo(apps, packages),
-          catch: (error) => {
-            const err = error as Error & { eresult?: number };
-            return new SteamError({
-              message: 'Failed to get product info',
-              originalError: error,
-              eresult: err?.eresult,
-            });
-          },
-        }),
-      requestFreeLicense: (appIDs) =>
-        Effect.tryPromise({
-          try: () => user.requestFreeLicense(appIDs),
-          catch: (error) => {
-            const err = error as Error & { eresult?: number };
-            return new SteamError({
-              message: 'Failed to request free license',
-              originalError: error,
-              eresult: err?.eresult,
-            });
-          },
-        }).pipe(
-          Effect.timeout('30 seconds'),
-          Effect.catchTag('TimeoutException', () => Effect.fail(new SteamError({ message: 'Request free license timed out' }))),
-        ),
+      getUserOwnedApps: (steamID, options) => wrapPromise(() => user.getUserOwnedApps(steamID, options), TIMEOUT_MESSAGE, '1 minute'),
+      getProductInfo: (apps, packages) => wrapPromise(() => user.getProductInfo(apps, packages), 'Failed to get product info'),
+      requestFreeLicense: (appIDs) => wrapPromise(() => user.requestFreeLicense(appIDs), 'Request free license timed out'),
     };
   });
 };

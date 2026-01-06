@@ -11,13 +11,10 @@ import { SteamClient, SteamClientLive } from '../services/SteamService';
 import { makeStore, Store } from '../services/StoreService';
 import { handleSteamEvent, UserWorkflowState } from './UserEvents';
 
-const whenLoggedOn =
-  (state: UserWorkflowState) =>
-  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    Effect.gen(function* (_) {
-      yield* _(Ref.get(state.isLoggedOn), Effect.repeat(Schedule.spaced('1 second').pipe(Schedule.whileInput((logged) => !logged))));
-      return yield* _(effect);
-    });
+const whenLoggedOn = (state: UserWorkflowState) => {
+  const wait = Ref.get(state.isLoggedOn).pipe(Effect.repeat(Schedule.spaced('1 second').pipe(Schedule.whileInput((logged) => !logged))));
+  return <A, E, R>(effect: Effect.Effect<A, E, R>) => wait.pipe(Effect.zipRight(effect));
+};
 
 const runLogin = (user: UserContext, steamClient: SteamClient) =>
   Effect.gen(function* (_) {
@@ -30,12 +27,7 @@ const runLogin = (user: UserContext, steamClient: SteamClient) =>
     yield* _(
       steamClient.logOn(loginDetails),
       Effect.timeout('1 minute'),
-      Effect.catchTag('TimeoutException', () =>
-        Effect.gen(function* (_) {
-          yield* _(Effect.logError(`${user.username} login timed out`));
-          return yield* _(Effect.fail(new Error('Login timed out')));
-        }),
-      ),
+      Effect.catchTag('TimeoutException', () => Effect.fail(new Error('Login timed out'))),
     );
   });
 
@@ -118,10 +110,7 @@ const makeUserSession = (user: UserContext, configStore: Store<ConfigContext>, r
   Effect.gen(function* (_) {
     const steamClient = yield* _(SteamClient);
     const sessionDir = join(process.cwd(), 'sessions', user.username);
-    const sessionStore = yield* _(
-      makeStore(join(sessionDir, 'session.json'), SessionData, INITIAL_SESSION_DATA, 600_000),
-      Effect.tap((store) => Effect.addFinalizer(() => store.dispose)),
-    );
+    const sessionStore = yield* _(makeStore(join(sessionDir, 'session.json'), SessionData, INITIAL_SESSION_DATA, 600_000));
 
     const isPlaying = yield* _(Ref.make(false));
 

@@ -2,10 +2,10 @@ import { requestDefault } from '@vegapunk/request';
 import { Effect } from 'effect';
 import SteamUser from 'steam-user';
 
-import { DEFAULT_SLEEP_DURATION, RATE_LIMIT_MIN_MS } from '../core/constants';
-import { FreeGameError } from '../core/errors';
+import { RATE_LIMIT_MIN_MS } from '../core/constants';
+import { catchAndLogUnlessTimeout, FreeGameError } from '../core/errors';
 import { SessionData, UserContext } from '../core/schemas';
-import { filterGames, logErrorIfNotTimeout, parseAppIdsFromHtml } from '../core/utils';
+import { filterGames, parseAppIdsFromHtml } from '../core/utils';
 import { SteamClient, SteamRetryPolicy } from './SteamService';
 import { Store } from './StoreService';
 
@@ -53,8 +53,7 @@ export const collectFreeGames = (
     const result = yield* _(
       fetchSearchPage(sessionData.lastPage),
       Effect.map((res) => parseAppIdsFromHtml(res.body)),
-      Effect.tapError(logErrorIfNotTimeout(`FreeGame: ${userContext.username} error during collection`)),
-      Effect.catchAll(() => Effect.as(Effect.sleep(DEFAULT_SLEEP_DURATION), [])),
+      catchAndLogUnlessTimeout(`FreeGame: ${userContext.username} error during collection`, []),
     );
 
     if (result.length > 0) {
@@ -89,7 +88,9 @@ export const collectFreeGames = (
     } else {
       yield* _(
         store.update((data) => {
-          const nextLoop = data.freeGameLength === data.freeGameList.length ? data.lastLoop + 1 : data.lastLoop;
+          // If no new games found on current page, check if we've stalled for too long
+          const isStalled = data.freeGameLength === data.freeGameList.length;
+          const nextLoop = isStalled ? data.lastLoop + 1 : data.lastLoop;
           const shouldReset = nextLoop >= 5;
 
           return {
@@ -120,21 +121,18 @@ export const registerFreeGames = (store: Store<SessionData>, userContext: UserCo
 
     yield* _(
       steamClient.requestFreeLicense([...gameIdsToRegister]),
-      Effect.tapError(logErrorIfNotTimeout(`FreeGame: ${userContext.username} error during registration`)),
       Effect.catchAll((error) =>
         Effect.gen(function* (_) {
           if (error?.eresult === SteamUser.EResult.RateLimitExceeded) {
             const waitMs = Math.max(refreshGames, RATE_LIMIT_MIN_MS);
             yield* _(Effect.logWarning(`FreeGame: ${userContext.username} Rate Limit Exceeded. Waiting ${waitMs / 60000}m...`));
             yield* _(Effect.sleep(`${waitMs} millis`));
-          } else {
-            yield* _(Effect.sleep(DEFAULT_SLEEP_DURATION));
           }
           return yield* _(Effect.fail(error));
         }),
       ),
       Effect.retry(SteamRetryPolicy),
-      Effect.ignore,
+      catchAndLogUnlessTimeout(`FreeGame: ${userContext.username} error during registration`, undefined),
     );
 
     yield* _(
