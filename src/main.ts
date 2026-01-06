@@ -70,9 +70,7 @@ const programWithCatch = program.pipe(
   }),
 );
 
-const runtime = runWithRestart(programWithCatch).pipe(Effect.provide(LoggerLive), Effect.scoped);
-
-const fiber = Effect.runFork(runtime);
+const fiber = Effect.runFork(runWithRestart(programWithCatch).pipe(Effect.provide(LoggerLive), Effect.scoped));
 
 process.on('SIGINT', () => {
   Effect.runPromise(Fiber.interrupt(fiber)).then(() => process.exit(0));

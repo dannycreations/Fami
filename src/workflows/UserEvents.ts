@@ -74,41 +74,52 @@ export const handleSteamGuard = (user: UserContext, event: Extract<SteamEvent, {
     }
   });
 
+const handleRateLimit = (user: UserContext, configStore: Store<ConfigContext>) =>
+  Effect.gen(function* (_) {
+    const cfg = yield* _(configStore.get);
+    const sleepMs = Math.max(cfg.refreshGames, RATE_LIMIT_MIN_MS);
+    yield* _(Effect.logWarning(`${user.username} Rate Limit Exceeded. Sleeping for ${sleepMs / 60000}m...`));
+    yield* _(Effect.sleep(`${sleepMs} millis`));
+  });
+
+const handleLoggedInElsewhere = (user: UserContext) =>
+  Effect.gen(function* (_) {
+    yield* _(Effect.logWarning(`${user.username} Logged in elsewhere. Sleeping for 10m...`));
+    yield* _(Effect.sleep('10 minutes'));
+  });
+
+const handleInvalidCredentials = (user: UserContext, configStore: Store<ConfigContext>) =>
+  Effect.gen(function* (_) {
+    yield* _(Effect.logError(`${user.username} Invalid credentials/token. Clearing refresh token.`));
+    yield* _(
+      configStore.update((cfg) => ({
+        ...cfg,
+        users: cfg.users.map((u) => (u.username === user.username ? { ...u, refreshToken: undefined } : u)),
+      })),
+    );
+  });
+
 export const handleError = (user: UserContext, error: Error & { eresult?: number }, configStore: Store<ConfigContext>, state: UserWorkflowState) =>
   Effect.gen(function* (_) {
     yield* _(state.reset());
     yield* _(Effect.logError(chalk`{red ${user.username} disconnected}`, error));
 
     switch (error.eresult) {
-      case SteamUser.EResult.RateLimitExceeded: {
-        const cfg = yield* _(configStore.get);
-        const sleepMs = Math.max(cfg.refreshGames, RATE_LIMIT_MIN_MS);
-        yield* _(Effect.logWarning(`${user.username} Rate Limit Exceeded. Sleeping for ${sleepMs / 60000}m...`));
-        yield* _(Effect.sleep(`${sleepMs} millis`));
+      case SteamUser.EResult.RateLimitExceeded:
+        yield* _(handleRateLimit(user, configStore));
         break;
-      }
       case SteamUser.EResult.LoggedInElsewhere:
       case SteamUser.EResult.LogonSessionReplaced:
-      case SteamUser.EResult.AlreadyLoggedInElsewhere: {
-        yield* _(Effect.logWarning(`${user.username} Logged in elsewhere. Sleeping for 10m...`));
-        yield* _(Effect.sleep('10 minutes'));
+      case SteamUser.EResult.AlreadyLoggedInElsewhere:
+        yield* _(handleLoggedInElsewhere(user));
         break;
-      }
       case SteamUser.EResult.AccessDenied:
-      case SteamUser.EResult.InvalidPassword: {
-        yield* _(Effect.logError(`${user.username} Invalid credentials/token. Clearing refresh token.`));
-        yield* _(
-          configStore.update((cfg) => ({
-            ...cfg,
-            users: cfg.users.map((u) => (u.username === user.username ? { ...u, refreshToken: undefined } : u)),
-          })),
-        );
+      case SteamUser.EResult.InvalidPassword:
+        yield* _(handleInvalidCredentials(user, configStore));
         break;
-      }
       case SteamUser.EResult.NoConnection:
-      case SteamUser.EResult.ServiceUnavailable: {
+      case SteamUser.EResult.ServiceUnavailable:
         break;
-      }
     }
 
     yield* _(Effect.logWarning(chalk`{yellow ${user.username} session ended, restarting...}`));
@@ -154,24 +165,25 @@ export const handleUserUpdate = (
     if (isSelf || !isFamilyMember) return;
 
     const personaState = event.user.persona_state;
+    // Skip if we don't have a valid persona state update and it's not the first time
     if (family[userId] !== -1 && personaState === null) return;
 
     const userPersona = personaState ?? SteamUser.EPersonaState.Offline;
     const isUserOffline = USER_OFFLINE_STATE.includes(userPersona);
 
-    if (family[userId] === -1 || personaState !== undefined) {
-      yield* _(Ref.update(state.familyState, (f) => ({ ...f, [userId]: userPersona })));
-    }
+    // Update family state tracking
+    yield* _(Ref.update(state.familyState, (f) => ({ ...f, [userId]: userPersona })));
 
     if (isUserOffline) return;
 
+    // If a family member is online, disable idling
     const currentEnabled = yield* _(Ref.get(state.isEnabled));
     if (currentEnabled) {
       yield* _(Ref.set(state.isEnabled, false));
       yield* _(state.setGamesPlayed([]));
 
       const playerName = event.user.player_name || 'FamilyMember';
-      yield* _(Effect.logInfo(chalk`{yellow ${user.username} sleeping, reason: ${playerName} is online}`));
+      yield* _(Effect.logInfo(chalk`{yellow ${user.username} paused: ${playerName} is online}`));
     }
   });
 

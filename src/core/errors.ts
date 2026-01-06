@@ -1,17 +1,12 @@
 import { Data } from 'effect';
 
-export class FreeGameError extends Data.TaggedError('FreeGameError')<{
+export interface BaseErrorInfo {
   readonly message: string;
   readonly originalError?: unknown;
-}> {}
+}
 
-export class SteamError extends Data.TaggedError('SteamError')<{
-  readonly message: string;
-  readonly originalError?: unknown;
-  readonly eresult?: number;
-}> {}
+export class FreeGameError extends Data.TaggedError('FreeGameError')<BaseErrorInfo> {}
 
-export class StoreError extends Data.TaggedError('StoreError')<{
-  readonly message: string;
-  readonly originalError?: unknown;
-}> {}
+export class SteamError extends Data.TaggedError('SteamError')<BaseErrorInfo & { readonly eresult?: number }> {}
+
+export class StoreError extends Data.TaggedError('StoreError')<BaseErrorInfo> {}

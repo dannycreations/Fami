@@ -2,9 +2,9 @@ import { unionBy } from '@vegapunk/utilities/common';
 import { Effect } from 'effect';
 import SteamUser from 'steam-user';
 
-import { DEFAULT_SLEEP_DURATION, TIMEOUT_MESSAGE } from '../core/constants';
+import { DEFAULT_SLEEP_DURATION } from '../core/constants';
 import { SessionData, UserContext } from '../core/schemas';
-import { filterGames } from '../core/utils';
+import { filterGames, logErrorIfNotTimeout } from '../core/utils';
 import { SteamClient, SteamRetryPolicy } from './SteamService';
 import { Store } from './StoreService';
 
@@ -36,12 +36,9 @@ export const collectOwnGames = (
     const apps = yield* _(
       fetchApps,
       Effect.map((r) => r.apps),
+      Effect.tapError(logErrorIfNotTimeout(`GameScanner: ${userContext.username} error during scan`)),
       Effect.catchAll((error) =>
         Effect.gen(function* (_) {
-          if (error.message !== TIMEOUT_MESSAGE) {
-            yield* _(Effect.logError(`GameScanner: ${userContext.username} error during scan: ${error.message}`));
-          }
-
           yield* _(Effect.sleep(DEFAULT_SLEEP_DURATION));
           return yield* _(Effect.fail(error));
         }),
@@ -50,7 +47,7 @@ export const collectOwnGames = (
     );
 
     const combinedGames = unionBy(
-      apps,
+      apps.map((a) => ({ appid: a.appid, name: a.name || 'unknown' })),
       [...includedIds].map((appid) => ({ appid, name: 'unknown' })),
       (game) => game.appid,
     );

@@ -42,6 +42,54 @@ export interface SteamClient {
 
 export const SteamClient = Context.GenericTag<SteamClient>('@services/SteamClient');
 
+const createEventStream = (user: SteamUser, community: SteamCommunity) =>
+  Stream.async<SteamEvent>((emit) => {
+    const onWebSession = (_sessionID: string, cookies: string[]) => {
+      community.setCookies(cookies);
+    };
+    const onLoggedOn = () => {
+      emit.single({ type: 'loggedOn' });
+    };
+    const onError = (error: Error & { eresult?: number }) => {
+      emit.single({ type: 'error', error });
+    };
+    const onRefreshToken = (token: string) => {
+      emit.single({ type: 'refreshToken', token });
+    };
+    const onSteamGuard = (domain: string | null, callback: (code: string) => void, lastCodeWrong: boolean) => {
+      emit.single({ type: 'steamGuard', domain, callback, lastCodeWrong });
+    };
+    const onUser = (sid: NonNullable<SteamUser['steamID']>, user: unknown) => {
+      emit.single({ type: 'user', sid, user: user as unknown as UserStatus });
+    };
+    const onVacBans = (numBans: number, appids: number[]) => {
+      emit.single({ type: 'vacBans', numBans, appids });
+    };
+
+    user.on('webSession', onWebSession);
+    user.on('loggedOn', onLoggedOn);
+    user.on('error', onError);
+    user.on('refreshToken', onRefreshToken);
+    user.on('steamGuard', onSteamGuard);
+    user.on('user', onUser);
+    user.on('vacBans', onVacBans);
+
+    return Effect.sync(() => {
+      // Suppress late errors
+      user.once('error', () => {});
+      user.removeListener('webSession', onWebSession);
+      user.removeListener('loggedOn', onLoggedOn);
+      user.removeListener('error', onError);
+      user.removeListener('refreshToken', onRefreshToken);
+      user.removeListener('steamGuard', onSteamGuard);
+      user.removeListener('user', onUser);
+      user.removeListener('vacBans', onVacBans);
+    });
+  }).pipe(
+    Stream.tap((event) => Effect.annotateLogs(Effect.logTrace(`Steam Event: ${event.type}`), 'event', JSON.stringify(event))),
+    Stream.tapError((error) => Effect.logError('Steam event stream error', error)),
+  );
+
 export const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, never, Scope.Scope> => {
   return Effect.gen(function* (_) {
     const user = new SteamUser({ dataDirectory, renewRefreshTokens: true, autoRelogin: false });
@@ -57,57 +105,10 @@ export const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClien
       ),
     );
 
-    const eventStream = Stream.async<SteamEvent>((emit) => {
-      const onWebSession = (_sessionID: string, cookies: string[]) => {
-        community.setCookies(cookies);
-      };
-      const onLoggedOn = () => {
-        emit.single({ type: 'loggedOn' });
-      };
-      const onError = (error: Error & { eresult?: number }) => {
-        emit.single({ type: 'error', error });
-      };
-      const onRefreshToken = (token: string) => {
-        emit.single({ type: 'refreshToken', token });
-      };
-      const onSteamGuard = (domain: string | null, callback: (code: string) => void, lastCodeWrong: boolean) => {
-        emit.single({ type: 'steamGuard', domain, callback, lastCodeWrong });
-      };
-      const onUser = (sid: NonNullable<SteamUser['steamID']>, user: unknown) => {
-        emit.single({ type: 'user', sid, user: user as unknown as UserStatus });
-      };
-      const onVacBans = (numBans: number, appids: number[]) => {
-        emit.single({ type: 'vacBans', numBans, appids });
-      };
-
-      user.on('webSession', onWebSession);
-      user.on('loggedOn', onLoggedOn);
-      user.on('error', onError);
-      user.on('refreshToken', onRefreshToken);
-      user.on('steamGuard', onSteamGuard);
-      user.on('user', onUser);
-      user.on('vacBans', onVacBans);
-
-      return Effect.sync(() => {
-        // Suppress late errors
-        user.once('error', () => {});
-        user.removeListener('webSession', onWebSession);
-        user.removeListener('loggedOn', onLoggedOn);
-        user.removeListener('error', onError);
-        user.removeListener('refreshToken', onRefreshToken);
-        user.removeListener('steamGuard', onSteamGuard);
-        user.removeListener('user', onUser);
-        user.removeListener('vacBans', onVacBans);
-      });
-    }).pipe(
-      Stream.tap((event) => Effect.annotateLogs(Effect.logTrace(`Steam Event: ${event.type}`), 'event', JSON.stringify(event))),
-      Stream.tapError((e) => Effect.logError('Steam event stream error', e)),
-    );
-
     return {
       user,
       community,
-      events: eventStream,
+      events: createEventStream(user, community),
       steamID: Effect.sync(() => user.steamID),
       logOn: (details) =>
         Effect.async<void, SteamError>((resume) => {

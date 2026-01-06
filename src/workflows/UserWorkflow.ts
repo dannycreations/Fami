@@ -21,7 +21,9 @@ const whenLoggedOn =
 
 const runLogin = (user: UserContext, steamClient: SteamClient) =>
   Effect.gen(function* (_) {
-    const loginDetails = user.refreshToken ? { refreshToken: user.refreshToken } : { accountName: user.username, password: user.password };
+    const loginDetails = user.refreshToken
+      ? ({ refreshToken: user.refreshToken } satisfies SteamUser.LogOnDetailsRefresh)
+      : ({ accountName: user.username, password: user.password } satisfies SteamUser.LogOnDetailsNamePass);
 
     yield* _(Effect.logInfo(`${user.username} logging in with ${user.refreshToken ? 'refresh token' : 'password'}`));
 
@@ -46,56 +48,51 @@ const runGameLoops = (
 ) => {
   const checkLoggedOn = whenLoggedOn(state);
 
-  const freeGameLoop = checkLoggedOn(
+  const gameLoop = checkLoggedOn(
     Effect.gen(function* (_) {
       const config = yield* _(configStore.get);
+
+      // Collect own games first to ensure filters are up to date
+      yield* _(collectOwnGames(sessionStore, user, config.whitelistGameIds, config.blacklistGameIds));
+
+      // Then check for free games if enabled
       if (config.fetchFreeGames || user.fetchFreeGames) {
         yield* _(collectFreeGames(sessionStore, user, config.blacklistGameIds, registrationSemaphore, config.refreshGames));
       }
-    }),
-  ).pipe(Effect.repeat(Schedule.spaced('1 minute')));
 
-  const ownGameLoop = checkLoggedOn(
-    Effect.gen(function* (_) {
-      const config = yield* _(configStore.get);
-      yield* _(collectOwnGames(sessionStore, user, config.whitelistGameIds, config.blacklistGameIds));
       yield* _(Effect.sleep(`${config.refreshGames} millis`));
     }),
-  ).pipe(Effect.repeat(Schedule.spaced('1 minute')));
+  ).pipe(Effect.repeat(Schedule.forever));
 
-  return Effect.all([freeGameLoop, ownGameLoop], { concurrency: 'unbounded' });
+  return gameLoop;
 };
 
 const runPresenceAndIdle = (user: UserContext, steamClient: SteamClient, sessionStore: Store<SessionData>, state: UserWorkflowState) =>
   Effect.gen(function* (_) {
     const checkLoggedOn = whenLoggedOn(state);
+    const nextIdleTimeRef = yield* _(Ref.make(0));
 
-    const presenceLoop = checkLoggedOn(
+    const idleLoop = checkLoggedOn(
       Effect.gen(function* (_) {
         const family = yield* _(Ref.get(state.familyState));
         const hasFamilyOnline = Object.values(family).some((s) => (typeof s === 'number' ? s > 0 : false));
         const playing = yield* _(Ref.get(state.isPlaying));
 
-        if (hasFamilyOnline) {
-          yield* _(Ref.set(state.isEnabled, false));
-        } else if (!playing) {
+        let enabled = !hasFamilyOnline;
+
+        // If no family online and not already playing, check community status (self presence)
+        if (enabled && !playing) {
           const sid = yield* _(steamClient.steamID);
           if (sid) {
             const communityUser = yield* _(steamClient.getCommunityUser(sid));
             if (communityUser && typeof communityUser.onlineState === 'string') {
-              const shouldEnable = communityUser.onlineState === 'offline';
-              yield* _(Ref.set(state.isEnabled, shouldEnable));
+              enabled = communityUser.onlineState === 'offline';
             }
           }
         }
-      }),
-    ).pipe(Effect.repeat(Schedule.spaced('1 minute')));
 
-    const nextIdleTimeRef = yield* _(Ref.make(0));
-    const idleLoop = checkLoggedOn(
-      Effect.gen(function* (_) {
-        const enabled = yield* _(Ref.get(state.isEnabled));
-        const playing = yield* _(Ref.get(state.isPlaying));
+        yield* _(Ref.set(state.isEnabled, enabled));
+
         const nextIdleTime = yield* _(Ref.get(nextIdleTimeRef));
 
         if (enabled) {
@@ -112,9 +109,9 @@ const runPresenceAndIdle = (user: UserContext, steamClient: SteamClient, session
           }
         }
       }),
-    ).pipe(Effect.repeat(Schedule.spaced('10 seconds')));
+    ).pipe(Effect.repeat(Schedule.spaced('30 seconds')));
 
-    return yield* _(Effect.all([presenceLoop, idleLoop], { concurrency: 'unbounded' }));
+    return yield* _(idleLoop);
   });
 
 const makeUserSession = (user: UserContext, configStore: Store<ConfigContext>, registrationSemaphore: Effect.Semaphore) =>

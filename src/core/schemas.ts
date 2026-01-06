@@ -7,26 +7,31 @@ export const GameContext = Schema.Struct({
 });
 export type GameContext = Schema.Schema.Type<typeof GameContext>;
 
+export const PreferenceSchema = Schema.Struct({
+  fetchFreeGames: Schema.Boolean,
+  whitelistGameIds: Schema.Array(Schema.Number),
+  blacklistGameIds: Schema.Array(Schema.Number),
+  family: Schema.Array(Schema.String),
+});
+export type PreferenceSchema = Schema.Schema.Type<typeof PreferenceSchema>;
+
 export const UserContext = Schema.Struct({
   id: Schema.optional(Schema.String),
   username: Schema.String,
   password: Schema.String,
   secret: Schema.optional(Schema.String),
-  family: Schema.optional(Schema.Array(Schema.String)),
+  refreshToken: Schema.optional(Schema.String),
   fetchFreeGames: Schema.optional(Schema.Boolean),
   whitelistGameIds: Schema.optional(Schema.Array(Schema.Number)),
   blacklistGameIds: Schema.optional(Schema.Array(Schema.Number)),
-  refreshToken: Schema.optional(Schema.String),
+  family: Schema.optional(Schema.Array(Schema.String)),
 });
 export type UserContext = Schema.Schema.Type<typeof UserContext>;
 
 export const ConfigContext = Schema.Struct({
   refreshGames: Schema.Number,
-  fetchFreeGames: Schema.Boolean,
   skipBannedGames: Schema.Boolean,
-  whitelistGameIds: Schema.Array(Schema.Number),
-  blacklistGameIds: Schema.Array(Schema.Number),
-  family: Schema.Array(Schema.String),
+  ...PreferenceSchema.fields,
   users: Schema.Array(UserContext),
 });
 export type ConfigContext = Schema.Schema.Type<typeof ConfigContext>;

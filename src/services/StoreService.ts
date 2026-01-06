@@ -14,6 +14,76 @@ export interface Store<T> {
   readonly dispose: Effect.Effect<void>;
 }
 
+const loadStore = <A>(filePath: string, initialData: A) =>
+  Effect.tryPromise({
+    try: () => readFile(filePath, 'utf-8'),
+    catch: (error) => error,
+  }).pipe(
+    Effect.map((content) => parseJsonc<A>(content)),
+    Effect.map((data) => defaultsDeep({}, data, initialData)),
+    Effect.catchAll((error) =>
+      Effect.gen(function* (_) {
+        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+          const dir = dirname(filePath);
+          yield* _(
+            Effect.tryPromise({
+              try: () => mkdir(dir, { recursive: true }),
+              catch: (error) => error,
+            }),
+          );
+          yield* _(
+            Effect.tryPromise({
+              try: () => writeFile(filePath, JSON.stringify(initialData)),
+              catch: (error) => error,
+            }),
+          );
+          return initialData;
+        }
+        return yield* _(Effect.fail(new StoreError({ message: `Failed to load store: ${filePath}`, originalError: error })));
+      }),
+    ),
+    Effect.catchAll((error) => {
+      if (error instanceof StoreError) return Effect.fail(error);
+      return Effect.fail(new StoreError({ message: `Failed to load store: ${filePath}`, originalError: error }));
+    }),
+  );
+
+const saveStore = <A>(filePath: string, data: A) =>
+  Effect.gen(function* (_) {
+    const dir = dirname(filePath);
+    yield* _(
+      Effect.tryPromise({
+        try: () => mkdir(dir, { recursive: true }),
+        catch: (error) => error,
+      }),
+    );
+    const tempPath = `${filePath}.tmp`;
+    yield* _(
+      Effect.tryPromise({
+        try: () => writeFile(tempPath, JSON.stringify(data)),
+        catch: (error) => error,
+      }),
+    );
+    yield* _(
+      Effect.tryPromise({
+        try: () => rename(filePath, `${filePath}.bak`),
+        catch: (error) => error,
+      }),
+      Effect.ignore,
+    );
+    yield* _(
+      Effect.tryPromise({
+        try: () => rename(tempPath, filePath),
+        catch: (error) => error,
+      }),
+    );
+  }).pipe(
+    Effect.mapError((error) => {
+      if (error instanceof StoreError) return error;
+      return new StoreError({ message: `Failed to save store: ${filePath}`, originalError: error });
+    }),
+  );
+
 export const makeStore = <A extends object, I, R>(
   filePath: string,
   schema: Schema.Schema<A, I, R>,
@@ -27,55 +97,23 @@ export const makeStore = <A extends object, I, R>(
 
     const decode = Schema.decodeUnknown(schema);
 
-    const load = Effect.tryPromise({
-      try: async () => {
-        try {
-          const content = await readFile(filePath, 'utf-8');
-          const data = parseJsonc<A>(content);
-          return defaultsDeep({}, data, initialData);
-        } catch (error) {
-          if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-            const dir = dirname(filePath);
-            await mkdir(dir, { recursive: true });
-            await writeFile(filePath, JSON.stringify(initialData));
-            return initialData;
-          }
-          throw error;
-        }
-      },
-      catch: (error) => new StoreError({ message: `Failed to load store: ${filePath}`, originalError: error }),
-    });
-
-    const save = (data: A) =>
-      Effect.tryPromise({
-        try: async () => {
-          const dir = dirname(filePath);
-          await mkdir(dir, { recursive: true });
-          const tempPath = `${filePath}.tmp`;
-          await writeFile(tempPath, JSON.stringify(data));
-          await rename(filePath, `${filePath}.bak`).catch(() => {});
-          await rename(tempPath, filePath);
-        },
-        catch: (error) => new StoreError({ message: `Failed to save store: ${filePath}`, originalError: error }),
-      });
-
-    const rawData = yield* _(load);
+    const rawData = yield* _(loadStore(filePath, initialData));
     const validatedData = yield* _(
       decode(rawData),
-      Effect.mapError((e) => new StoreError({ message: `Validation failed for store: ${filePath}`, originalError: e })),
+      Effect.mapError((error) => new StoreError({ message: `Validation failed for store: ${filePath}`, originalError: error })),
     );
 
     yield* _(Ref.set(dataRef, validatedData));
 
     const autoSaveLoop = Effect.gen(function* (_) {
       const delay = yield* _(Ref.get(delayRef));
-      yield* _(Effect.sleep(`${delay} millis`));
+      yield* _(Effect.sleep(`${Math.max(1000, delay)} millis`));
 
       const isDirty = yield* _(Ref.get(isDirtyRef));
       if (isDirty) {
         const data = yield* _(Ref.get(dataRef));
         yield* _(
-          save(data),
+          saveStore(filePath, data),
           Effect.tap(() => Ref.set(isDirtyRef, false)),
           Effect.catchAll((error) => Effect.logError(`Store auto-save failed for ${filePath}`, error)),
         );
@@ -100,7 +138,7 @@ export const makeStore = <A extends object, I, R>(
         const isDirty = yield* _(Ref.get(isDirtyRef));
         if (isDirty) {
           const data = yield* _(Ref.get(dataRef));
-          yield* _(save(data));
+          yield* _(saveStore(filePath, data));
         }
       }).pipe(Effect.catchAllCause(() => Effect.void)),
     };
