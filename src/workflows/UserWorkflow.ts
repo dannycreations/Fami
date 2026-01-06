@@ -3,7 +3,8 @@ import { chalk } from '@vegapunk/utilities';
 import { Effect, Ref, Schedule, Stream } from 'effect';
 import SteamUser from 'steam-user';
 
-import { ConfigContext, INITIAL_SESSION_DATA, SessionData, UserContext } from '../core/schemas';
+import { AuthError } from '../core/errors';
+import { ConfigContext, INITIAL_SESSION, SessionContext, UserContext } from '../core/schemas';
 import { collectFreeGames } from '../services/FreeGameService';
 import { startIdleGames } from '../services/IdleService';
 import { collectOwnGames } from '../services/OwnGameService';
@@ -20,7 +21,13 @@ const runLogin = (user: UserContext, steamClient: SteamClient) =>
   Effect.gen(function* (_) {
     const loginDetails = user.refreshToken
       ? ({ refreshToken: user.refreshToken } satisfies SteamUser.LogOnDetailsRefresh)
-      : ({ accountName: user.username, password: user.password } satisfies SteamUser.LogOnDetailsNamePass);
+      : user.password
+        ? ({ accountName: user.username, password: user.password } satisfies SteamUser.LogOnDetailsNamePass)
+        : null;
+
+    if (!loginDetails) {
+      return yield* _(Effect.fail(new AuthError({ message: `No credentials found for ${user.username}` })));
+    }
 
     yield* _(Effect.logInfo(`${user.username} logging in with ${user.refreshToken ? 'refresh token' : 'password'}`));
 
@@ -34,7 +41,7 @@ const runLogin = (user: UserContext, steamClient: SteamClient) =>
 const runGameLoops = (
   user: UserContext,
   configStore: Store<ConfigContext>,
-  sessionStore: Store<SessionData>,
+  sessionStore: Store<SessionContext>,
   registrationSemaphore: Effect.Semaphore,
   state: UserWorkflowState,
 ) => {
@@ -45,11 +52,11 @@ const runGameLoops = (
       const config = yield* _(configStore.get);
 
       // Collect own games first to ensure filters are up to date
-      yield* _(collectOwnGames(sessionStore, user, config.whitelistGameIds, config.blacklistGameIds));
+      yield* _(collectOwnGames(user, configStore, sessionStore));
 
       // Then check for free games if enabled
       if (config.fetchFreeGames || user.fetchFreeGames) {
-        yield* _(collectFreeGames(sessionStore, user, config.blacklistGameIds, registrationSemaphore, config.refreshGames));
+        yield* _(collectFreeGames(user, configStore, sessionStore, registrationSemaphore));
       }
 
       yield* _(Effect.sleep(`${config.refreshGames} millis`));
@@ -59,7 +66,7 @@ const runGameLoops = (
   return gameLoop;
 };
 
-const runPresenceAndIdle = (user: UserContext, steamClient: SteamClient, sessionStore: Store<SessionData>, state: UserWorkflowState) =>
+const runPresenceAndIdle = (user: UserContext, steamClient: SteamClient, sessionStore: Store<SessionContext>, state: UserWorkflowState) =>
   Effect.gen(function* (_) {
     const checkLoggedOn = whenLoggedOn(state);
     const nextIdleTimeRef = yield* _(Ref.make(0));
@@ -104,7 +111,7 @@ const makeUserSession = (user: UserContext, configStore: Store<ConfigContext>, r
   Effect.gen(function* (_) {
     const steamClient = yield* _(SteamClient);
     const sessionDir = join(process.cwd(), 'sessions', user.username);
-    const sessionStore = yield* _(makeStore(join(sessionDir, 'session.json'), SessionData, INITIAL_SESSION_DATA, 600_000));
+    const sessionStore = yield* _(makeStore(join(sessionDir, 'session.json'), SessionContext, INITIAL_SESSION, 600_000));
 
     const isPlaying = yield* _(Ref.make(false));
 

@@ -3,13 +3,13 @@ import { humanizeDuration } from '@vegapunk/utilities/time';
 import { Effect, Random } from 'effect';
 import SteamUser from 'steam-user';
 
-import { SessionData } from '../core/schemas';
+import { SessionContext } from '../core/schemas';
 import { SteamClient } from './SteamService';
 import { Store } from './StoreService';
 
 const MAX_IDLE_GAMES = 32;
 
-export const startIdleGames = (store: Store<SessionData>, username: string) =>
+export const startIdleGames = (store: Store<SessionContext>, username: string) =>
   Effect.gen(function* (_) {
     const steamClient = yield* _(SteamClient);
     const sessionData = yield* _(store.get);

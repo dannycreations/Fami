@@ -4,8 +4,8 @@ import { Effect, Ref } from 'effect';
 import SteamTotp from 'steam-totp';
 import SteamUser from 'steam-user';
 
-import { DEFAULT_SLEEP_DURATION, RATE_LIMIT_MIN_MS } from '../core/constants';
-import { ConfigContext, SessionData, USER_OFFLINE_STATE, UserContext } from '../core/schemas';
+import { DEFAULT_SLEEP_DURATION, RATE_LIMIT_MIN_MS, USER_OFFLINE_STATE } from '../core/constants';
+import { ConfigContext, SessionContext, UserContext } from '../core/schemas';
 import { collectOwnGames } from '../services/OwnGameService';
 import { SteamClient, SteamEvent } from '../services/SteamService';
 import { Store } from '../services/StoreService';
@@ -23,7 +23,7 @@ export const handleLoggedOn = (
   user: UserContext,
   steamClient: SteamClient,
   configStore: Store<ConfigContext>,
-  sessionStore: Store<SessionData>,
+  sessionStore: Store<SessionContext>,
   state: UserWorkflowState,
 ) =>
   Effect.gen(function* (_) {
@@ -42,7 +42,7 @@ export const handleLoggedOn = (
     const config = yield* _(configStore.get);
     yield* _(sessionStore.setDelay(config.refreshGames));
 
-    yield* _(collectOwnGames(sessionStore, user, config.whitelistGameIds, config.blacklistGameIds));
+    yield* _(collectOwnGames(user, configStore, sessionStore));
     const sessionData = yield* _(sessionStore.get);
     yield* _(Effect.logInfo(`${user.username} owns ${sessionData.ownedGameList.length} games`));
     yield* _(Ref.set(state.isLoggedOn, true));
@@ -130,7 +130,7 @@ export const handleVacBans = (
   user: UserContext,
   event: Extract<SteamEvent, { type: 'vacBans' }>,
   configStore: Store<ConfigContext>,
-  sessionStore: Store<SessionData>,
+  sessionStore: Store<SessionContext>,
 ) =>
   Effect.gen(function* (_) {
     if (event.numBans > 0) {
@@ -191,7 +191,7 @@ export const handleSteamEvent = (
   user: UserContext,
   steamClient: SteamClient,
   configStore: Store<ConfigContext>,
-  sessionStore: Store<SessionData>,
+  sessionStore: Store<SessionContext>,
   state: UserWorkflowState,
 ) =>
   Effect.gen(function* (_) {

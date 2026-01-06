@@ -4,10 +4,12 @@ import SteamUser from 'steam-user';
 
 import { RATE_LIMIT_MIN_MS } from '../core/constants';
 import { catchAndLogUnlessTimeout, FreeGameError } from '../core/errors';
-import { SessionData, UserContext } from '../core/schemas';
+import { SessionContext, UserContext } from '../core/schemas';
 import { filterGames, parseAppIdsFromHtml } from '../core/utils';
 import { SteamClient, SteamRetryPolicy } from './SteamService';
 import { Store } from './StoreService';
+
+import type { ConfigContext } from '../core/schemas';
 
 const MAX_FREE_GAMES_BATCH = 50;
 
@@ -33,19 +35,19 @@ const fetchSearchPage = (page: number) =>
   );
 
 export const collectFreeGames = (
-  store: Store<SessionData>,
-  userContext: UserContext,
-  globalBlacklist: readonly number[],
+  user: UserContext,
+  configStore: Store<ConfigContext>,
+  sessionStore: Store<SessionContext>,
   registrationSemaphore: Effect.Semaphore,
-  refreshGames: number,
 ) =>
   Effect.gen(function* (_) {
     const steamClient = yield* _(SteamClient);
-    const sessionData = yield* _(store.get);
+    const configData = yield* _(configStore.get);
+    const sessionData = yield* _(sessionStore.get);
 
     const claimExcludeIds = new Set([
-      ...globalBlacklist,
-      ...(userContext.blacklistGameIds || []),
+      ...(configData.blacklistGameIds || []),
+      ...(user.blacklistGameIds || []),
       ...sessionData.bannedGameIds,
       ...sessionData.ownedGameList.map((g) => g.appId),
     ]);
@@ -53,7 +55,7 @@ export const collectFreeGames = (
     const result = yield* _(
       fetchSearchPage(sessionData.lastPage),
       Effect.map((res) => parseAppIdsFromHtml(res.body)),
-      catchAndLogUnlessTimeout(`FreeGame: ${userContext.username} error during collection`, []),
+      catchAndLogUnlessTimeout(`FreeGame: ${user.username} error during collection`, []),
     );
 
     if (result.length > 0) {
@@ -75,7 +77,7 @@ export const collectFreeGames = (
 
           if (filteredGames.length > 0) {
             yield* _(
-              store.update((data) => ({
+              sessionStore.update((data) => ({
                 ...data,
                 freeGameIds: [...data.freeGameIds, ...filteredGames.map((g) => g.appId)],
                 freeGameList: [...data.freeGameList, ...filteredGames],
@@ -84,10 +86,10 @@ export const collectFreeGames = (
           }
         }
       }
-      yield* _(store.update((data) => ({ ...data, lastPage: data.lastPage + 1 })));
+      yield* _(sessionStore.update((data) => ({ ...data, lastPage: data.lastPage + 1 })));
     } else {
       yield* _(
-        store.update((data) => {
+        sessionStore.update((data) => {
           // If no new games found on current page, check if we've stalled for too long
           const isStalled = data.freeGameLength === data.freeGameList.length;
           const nextLoop = isStalled ? data.lastLoop + 1 : data.lastLoop;
@@ -105,13 +107,14 @@ export const collectFreeGames = (
       );
     }
 
-    yield* _(registrationSemaphore.withPermits(1)(registerFreeGames(store, userContext, refreshGames)));
+    yield* _(registrationSemaphore.withPermits(1)(registerFreeGames(user, configStore, sessionStore)));
   });
 
-export const registerFreeGames = (store: Store<SessionData>, userContext: UserContext, refreshGames: number) =>
+export const registerFreeGames = (user: UserContext, configStore: Store<ConfigContext>, sessionStore: Store<SessionContext>) =>
   Effect.gen(function* (_) {
     const steamClient = yield* _(SteamClient);
-    const sessionData = yield* _(store.get);
+    const configData = yield* _(configStore.get);
+    const sessionData = yield* _(sessionStore.get);
 
     const isSufficient = sessionData.freeGameList.length >= MAX_FREE_GAMES_BATCH || sessionData.forceRegister;
     if (!isSufficient || sessionData.freeGameList.length === 0) return;
@@ -124,23 +127,21 @@ export const registerFreeGames = (store: Store<SessionData>, userContext: UserCo
       Effect.catchAll((error) =>
         Effect.gen(function* (_) {
           if (error?.eresult === SteamUser.EResult.RateLimitExceeded) {
-            const waitMs = Math.max(refreshGames, RATE_LIMIT_MIN_MS);
-            yield* _(Effect.logWarning(`FreeGame: ${userContext.username} Rate Limit Exceeded. Waiting ${waitMs / 60000}m...`));
+            const waitMs = Math.max(configData.refreshGames, RATE_LIMIT_MIN_MS);
+            yield* _(Effect.logWarning(`FreeGame: ${user.username} Rate Limit Exceeded. Waiting ${waitMs / 60000}m...`));
             yield* _(Effect.sleep(`${waitMs} millis`));
           }
           return yield* _(Effect.fail(error));
         }),
       ),
       Effect.retry(SteamRetryPolicy),
-      catchAndLogUnlessTimeout(`FreeGame: ${userContext.username} error during registration`, undefined),
+      catchAndLogUnlessTimeout(`FreeGame: ${user.username} error during registration`, undefined),
     );
 
-    yield* _(
-      Effect.logInfo(`${userContext.username} added ${gamesToRegister.length}/${sessionData.freeGameList.length}/${sessionData.lastPage} new games`),
-    );
+    yield* _(Effect.logInfo(`${user.username} added ${gamesToRegister.length}/${sessionData.freeGameList.length}/${sessionData.lastPage} new games`));
 
     yield* _(
-      store.update((data) => ({
+      sessionStore.update((data) => ({
         ...data,
         freeGameList: data.freeGameList.filter((g) => !gameIdsToRegister.has(g.appId)),
         lastLoop: 0,

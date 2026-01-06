@@ -1,5 +1,4 @@
 import { Schema } from 'effect';
-import SteamUser from 'steam-user';
 
 export const GameContext = Schema.Struct({
   name: Schema.String,
@@ -8,23 +7,20 @@ export const GameContext = Schema.Struct({
 export type GameContext = Schema.Schema.Type<typeof GameContext>;
 
 export const PreferenceSchema = Schema.Struct({
-  fetchFreeGames: Schema.Boolean,
-  whitelistGameIds: Schema.Array(Schema.Number),
-  blacklistGameIds: Schema.Array(Schema.Number),
-  family: Schema.Array(Schema.String),
+  fetchFreeGames: Schema.optional(Schema.Boolean),
+  whitelistGameIds: Schema.optional(Schema.Array(Schema.Number)),
+  blacklistGameIds: Schema.optional(Schema.Array(Schema.Number)),
+  family: Schema.optional(Schema.Array(Schema.String)),
 });
 export type PreferenceSchema = Schema.Schema.Type<typeof PreferenceSchema>;
 
 export const UserContext = Schema.Struct({
   id: Schema.optional(Schema.String),
   username: Schema.String,
-  password: Schema.String,
+  password: Schema.optional(Schema.String),
   secret: Schema.optional(Schema.String),
   refreshToken: Schema.optional(Schema.String),
-  fetchFreeGames: Schema.optional(Schema.Boolean),
-  whitelistGameIds: Schema.optional(Schema.Array(Schema.Number)),
-  blacklistGameIds: Schema.optional(Schema.Array(Schema.Number)),
-  family: Schema.optional(Schema.Array(Schema.String)),
+  ...PreferenceSchema.fields,
 });
 export type UserContext = Schema.Schema.Type<typeof UserContext>;
 
@@ -46,7 +42,7 @@ export const INITIAL_CONFIG: ConfigContext = {
   users: [],
 };
 
-export const SessionData = Schema.Struct({
+export const SessionContext = Schema.Struct({
   lastLoop: Schema.Number,
   lastPage: Schema.Number,
   freeGameIds: Schema.Array(Schema.Number),
@@ -56,9 +52,9 @@ export const SessionData = Schema.Struct({
   ownedGameList: Schema.Array(GameContext),
   bannedGameIds: Schema.Array(Schema.Number),
 });
-export type SessionData = Schema.Schema.Type<typeof SessionData>;
+export type SessionContext = Schema.Schema.Type<typeof SessionContext>;
 
-export const INITIAL_SESSION_DATA: SessionData = {
+export const INITIAL_SESSION: SessionContext = {
   lastLoop: 0,
   lastPage: 1,
   freeGameIds: [],
@@ -74,5 +70,3 @@ export const UserStatus = Schema.Struct({
   player_name: Schema.NullOr(Schema.String),
 });
 export type UserStatus = Schema.Schema.Type<typeof UserStatus>;
-
-export const USER_OFFLINE_STATE = [SteamUser.EPersonaState.Offline, SteamUser.EPersonaState.Invisible] as const;

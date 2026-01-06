@@ -13,6 +13,8 @@ export class SteamError extends Data.TaggedError('SteamError')<BaseErrorInfo & {
 
 export class StoreError extends Data.TaggedError('StoreError')<BaseErrorInfo> {}
 
+export class AuthError extends Data.TaggedError('AuthError')<BaseErrorInfo> {}
+
 export const catchAndLogUnlessTimeout =
   <A, E, R, B>(prefix: string, defaultValue: B) =>
   (effect: Effect.Effect<A, E, R>) =>
