@@ -66,29 +66,23 @@ const runPresenceAndIdle = (user: UserContext, steamClient: SteamClient, session
 
     const idleLoop = checkLoggedOn(
       Effect.gen(function* (_) {
-        const family = yield* _(Ref.get(state.familyState));
-        const hasFamilyOnline = Object.values(family).some((s) => (typeof s === 'number' ? s > 0 : false));
         const playing = yield* _(Ref.get(state.isPlaying));
+        const family = yield* _(Ref.get(state.familyState));
+        const hasFamilyOnline = Object.values(family).some((s) => s > 0);
 
-        let enabled = !hasFamilyOnline;
-
-        // If no family online and not already playing, check community status (self presence)
-        if (enabled && !playing) {
+        if (hasFamilyOnline) {
+          yield* _(Ref.set(state.isEnabled, false));
+        } else if (!hasFamilyOnline && !playing) {
+          // If no family online and not already playing, check community status (self presence)
           const steamId = yield* _(steamClient.steamID);
-          if (steamId) {
-            const communityUser = yield* _(steamClient.getCommunityUser(steamId));
-            if (communityUser && typeof communityUser.onlineState === 'string') {
-              enabled = communityUser.onlineState === 'offline';
-            }
+          const communityUser = yield* _(steamClient.getCommunityUser(steamId!));
+          if (communityUser && typeof communityUser.onlineState === 'string') {
+            yield* _(Ref.set(state.isEnabled, communityUser.onlineState === 'offline'));
           }
         }
 
-        yield* _(Ref.set(state.isEnabled, enabled));
-
-        const nextIdleTime = yield* _(Ref.get(nextIdleTimeRef));
-
-        if (enabled) {
-          if (Date.now() > nextIdleTime) {
+        if (yield* _(Ref.get(state.isEnabled))) {
+          if (Date.now() > (yield* _(Ref.get(nextIdleTimeRef)))) {
             const nextTime = yield* _(startIdleGames(sessionStore, user.username));
             yield* _(Ref.set(nextIdleTimeRef, nextTime));
             yield* _(Ref.set(state.isPlaying, true));

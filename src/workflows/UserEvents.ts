@@ -30,7 +30,6 @@ export const handleLoggedOn = (
     const steamId = yield* _(steamClient.steamID);
     const steamIdString = steamId!.toString();
     yield* _(Effect.logInfo(chalk`{bold.yellow ${user.username} logged on!}`));
-    yield* _(Ref.set(state.isLoggedOn, true));
     yield* _(steamClient.setPersona(SteamUser.EPersonaState.Invisible));
 
     yield* _(
@@ -46,6 +45,7 @@ export const handleLoggedOn = (
     yield* _(collectOwnGames(sessionStore, user, config.whitelistGameIds, config.blacklistGameIds));
     const sessionData = yield* _(sessionStore.get);
     yield* _(Effect.logInfo(`${user.username} owns ${sessionData.ownedGameList.length} games`));
+    yield* _(Ref.set(state.isLoggedOn, true));
   });
 
 export const handleSteamGuard = (user: UserContext, event: Extract<SteamEvent, { type: 'steamGuard' }>) =>
@@ -157,7 +157,7 @@ export const handleUserUpdate = (
     const family = yield* _(Ref.get(state.familyState));
     const userId = event.steamId.toString();
     const steamId = yield* _(steamClient.steamID);
-    const selfId = steamId?.toString();
+    const selfId = steamId!.toString();
 
     const isSelf = selfId === userId || user.id === userId;
     const isFamilyMember = family[userId] !== undefined;
@@ -177,8 +177,7 @@ export const handleUserUpdate = (
     if (isUserOffline) return;
 
     // If a family member is online, disable idling
-    const currentEnabled = yield* _(Ref.get(state.isEnabled));
-    if (currentEnabled) {
+    if (yield* _(Ref.get(state.isEnabled))) {
       yield* _(Ref.set(state.isEnabled, false));
       yield* _(state.setGamesPlayed([]));
 
