@@ -3,7 +3,7 @@ import SteamUser from 'steam-user';
 
 export const GameContext = Schema.Struct({
   name: Schema.String,
-  appid: Schema.Number,
+  appId: Schema.Number,
 });
 export type GameContext = Schema.Schema.Type<typeof GameContext>;
 

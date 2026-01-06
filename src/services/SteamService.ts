@@ -17,7 +17,7 @@ export type SteamEvent =
       readonly callback: (code: string) => void;
       readonly lastCodeWrong: boolean;
     }
-  | { readonly type: 'user'; readonly sid: NonNullable<SteamUser['steamID']>; readonly user: UserStatus }
+  | { readonly type: 'user'; readonly steamId: NonNullable<SteamUser['steamID']>; readonly user: UserStatus }
   | { readonly type: 'vacBans'; readonly numBans: number; readonly appids: number[] };
 
 export const SteamRetryPolicy = Schedule.recurs(3).pipe(Schedule.whileInput((error: Error) => error.message === TIMEOUT_MESSAGE));
@@ -59,8 +59,8 @@ const createEventStream = (user: SteamUser, community: SteamCommunity) =>
     const onSteamGuard = (domain: string | null, callback: (code: string) => void, lastCodeWrong: boolean) => {
       emit.single({ type: 'steamGuard', domain, callback, lastCodeWrong });
     };
-    const onUser = (sid: NonNullable<SteamUser['steamID']>, user: unknown) => {
-      emit.single({ type: 'user', sid, user: user as unknown as UserStatus });
+    const onUser = (steamId: NonNullable<SteamUser['steamID']>, user: unknown) => {
+      emit.single({ type: 'user', steamId, user: user as unknown as UserStatus });
     };
     const onVacBans = (numBans: number, appids: number[]) => {
       emit.single({ type: 'vacBans', numBans, appids });

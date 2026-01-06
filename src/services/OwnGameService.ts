@@ -16,8 +16,8 @@ export const collectOwnGames = (
 ) =>
   Effect.gen(function* (_) {
     const steamClient = yield* _(SteamClient);
-    const sid = yield* _(steamClient.steamID);
-    if (!sid) return;
+    const steamId = yield* _(steamClient.steamID);
+    if (!steamId) return;
 
     const sessionData = yield* _(store.get);
 
@@ -25,7 +25,7 @@ export const collectOwnGames = (
     const excludedIds = new Set([...globalBlacklist, ...(userContext.blacklistGameIds || []), ...sessionData.bannedGameIds]);
 
     const fetchApps = steamClient
-      .getUserOwnedApps(sid, {
+      .getUserOwnedApps(steamId, {
         includeAppInfo: true,
         includeFreeSub: true,
         skipUnvettedApps: false,
@@ -47,9 +47,9 @@ export const collectOwnGames = (
     );
 
     const combinedGames = unionBy(
-      apps.map((a) => ({ appid: a.appid, name: a.name || 'unknown' })),
-      [...includedIds].map((appid) => ({ appid, name: 'unknown' })),
-      (game) => game.appid,
+      apps.map((a) => ({ appId: a.appid, name: a.name || 'unknown' })),
+      [...includedIds].map((appId) => ({ appId, name: 'unknown' })),
+      (game) => game.appId,
     );
 
     const filteredGames = filterGames(combinedGames, {
@@ -57,7 +57,7 @@ export const collectOwnGames = (
       blacklist: excludedIds,
     });
 
-    const newGames = filteredGames.filter((g) => !sessionData.ownedGameList.some((r) => r.appid === g.appid));
+    const newGames = filteredGames.filter((g) => !sessionData.ownedGameList.some((r) => r.appId === g.appId));
 
     if (newGames.length > 0) {
       yield* _(

@@ -23,8 +23,8 @@ export const filterGames = (
   const { whitelist = new Set<number>(), blacklist = new Set<number>(), excludePatterns = true } = options;
 
   return games.filter((game) => {
-    if (whitelist.has(game.appid)) return true;
-    if (blacklist.has(game.appid)) return false;
+    if (whitelist.has(game.appId)) return true;
+    if (blacklist.has(game.appId)) return false;
     if (excludePatterns && EXCLUDED_GAME_NAME_PATTERN.test(game.name)) return false;
     return true;
   });

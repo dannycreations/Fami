@@ -47,7 +47,7 @@ export const collectFreeGames = (
       ...globalBlacklist,
       ...(userContext.blacklistGameIds || []),
       ...sessionData.bannedGameIds,
-      ...sessionData.ownedGameList.map((g) => g.appid),
+      ...sessionData.ownedGameList.map((g) => g.appId),
     ]);
 
     const result = yield* _(
@@ -68,9 +68,9 @@ export const collectFreeGames = (
 
         if (productInfo?.apps && typeof productInfo.apps === 'object') {
           const newFreeGames = appIdsToCheck
-            .map((appid) => ({ appid, common: productInfo.apps![appid]?.appinfo?.common }))
+            .map((appId) => ({ appId, common: productInfo.apps![appId]?.appinfo?.common }))
             .filter(({ common }) => common && common.releasestate === 'released' && common.type?.toLowerCase() === 'game')
-            .map(({ appid, common }) => ({ name: common!.name, appid }));
+            .map(({ appId, common }) => ({ name: common!.name, appId }));
 
           const filteredGames = filterGames(newFreeGames, { blacklist: claimExcludeIds });
 
@@ -78,7 +78,7 @@ export const collectFreeGames = (
             yield* _(
               store.update((data) => ({
                 ...data,
-                freeGameIds: [...data.freeGameIds, ...filteredGames.map((g) => g.appid)],
+                freeGameIds: [...data.freeGameIds, ...filteredGames.map((g) => g.appId)],
                 freeGameList: [...data.freeGameList, ...filteredGames],
               })),
             );
@@ -116,7 +116,7 @@ export const registerFreeGames = (store: Store<SessionData>, userContext: UserCo
     if (!isSufficient || sessionData.freeGameList.length === 0) return;
 
     const gamesToRegister = sessionData.freeGameList.slice(0, MAX_FREE_GAMES_BATCH);
-    const gameIdsToRegister = new Set(gamesToRegister.map((g) => g.appid));
+    const gameIdsToRegister = new Set(gamesToRegister.map((g) => g.appId));
 
     yield* _(
       steamClient.requestFreeLicense([...gameIdsToRegister]),
@@ -144,7 +144,7 @@ export const registerFreeGames = (store: Store<SessionData>, userContext: UserCo
     yield* _(
       store.update((data) => ({
         ...data,
-        freeGameList: data.freeGameList.filter((g) => !gameIdsToRegister.has(g.appid)),
+        freeGameList: data.freeGameList.filter((g) => !gameIdsToRegister.has(g.appId)),
         lastLoop: 0,
         forceRegister: false,
       })),

@@ -82,9 +82,9 @@ const runPresenceAndIdle = (user: UserContext, steamClient: SteamClient, session
 
         // If no family online and not already playing, check community status (self presence)
         if (enabled && !playing) {
-          const sid = yield* _(steamClient.steamID);
-          if (sid) {
-            const communityUser = yield* _(steamClient.getCommunityUser(sid));
+          const steamId = yield* _(steamClient.steamID);
+          if (steamId) {
+            const communityUser = yield* _(steamClient.getCommunityUser(steamId));
             if (communityUser && typeof communityUser.onlineState === 'string') {
               enabled = communityUser.onlineState === 'offline';
             }

@@ -17,7 +17,7 @@ export const startIdleGames = (store: Store<SessionData>, username: string) =>
     const idleMs = (yield* _(Random.nextIntBetween(60, 180))) * 60_000;
     const nextIdleAt = Date.now() + idleMs;
 
-    const allOwnedIds = sessionData.ownedGameList.map((game) => game.appid);
+    const allOwnedIds = sessionData.ownedGameList.map((game) => game.appId);
     const maxIdleTotal = Math.min(MAX_IDLE_GAMES, allOwnedIds.length);
 
     if (maxIdleTotal === 0) {

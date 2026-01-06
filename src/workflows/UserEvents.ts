@@ -27,8 +27,8 @@ export const handleLoggedOn = (
   state: UserWorkflowState,
 ) =>
   Effect.gen(function* (_) {
-    const sid = yield* _(steamClient.steamID);
-    const steamID = sid!.toString();
+    const steamId = yield* _(steamClient.steamID);
+    const steamIdString = steamId!.toString();
     yield* _(Effect.logInfo(chalk`{bold.yellow ${user.username} logged on!}`));
     yield* _(Ref.set(state.isLoggedOn, true));
     yield* _(steamClient.setPersona(SteamUser.EPersonaState.Invisible));
@@ -36,7 +36,7 @@ export const handleLoggedOn = (
     yield* _(
       configStore.update((cfg) => ({
         ...cfg,
-        users: cfg.users.map((u) => (u.username === user.username ? { ...u, id: steamID } : u)),
+        users: cfg.users.map((u) => (u.username === user.username ? { ...u, id: steamIdString } : u)),
       })),
     );
 
@@ -155,9 +155,9 @@ export const handleUserUpdate = (
 ) =>
   Effect.gen(function* (_) {
     const family = yield* _(Ref.get(state.familyState));
-    const userId = event.sid.toString();
-    const sid = yield* _(steamClient.steamID);
-    const selfId = sid?.toString();
+    const userId = event.steamId.toString();
+    const steamId = yield* _(steamClient.steamID);
+    const selfId = steamId?.toString();
 
     const isSelf = selfId === userId || user.id === userId;
     const isFamilyMember = family[userId] !== undefined;
