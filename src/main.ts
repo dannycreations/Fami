@@ -2,9 +2,9 @@ import 'dotenv/config';
 
 import { join } from 'node:path';
 import { chalk } from '@vegapunk/utilities';
-import { Data, Effect, Fiber, Ref, Schedule } from 'effect';
+import { Data, Effect, Fiber } from 'effect';
 
-import { ConfigContext, INITIAL_CONFIG } from './core/schemas';
+import { ConfigContext, INITIAL_CONFIG, RegistrationSemaphore } from './core/schemas';
 import { LoggerLive } from './services/LoggerService';
 import { runWithRestart } from './services/RuntimeService';
 import { makeStore } from './services/StoreService';
@@ -28,25 +28,20 @@ const program = Effect.gen(function* (_) {
   const registrationSemaphore = yield* _(Effect.makeSemaphore(1));
 
   const midnightCheck = Effect.gen(function* (_) {
-    const lastDay = yield* _(Ref.make(new Date().getDate()));
+    const now = new Date();
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const msUntilMidnight = tomorrow.getTime() - now.getTime();
 
-    yield* _(
-      Effect.gen(function* (_) {
-        const currentDay = new Date().getDate();
-        if (currentDay !== (yield* _(Ref.get(lastDay)))) {
-          yield* _(Effect.logInfo(chalk`{bold.yellow It's midnight time. Restarting app...}`));
-          return yield* _(Effect.fail(new RestartRequested()));
-        }
-      }),
-      Effect.repeat(Schedule.spaced('1 minute')),
-    );
+    yield* _(Effect.sleep(`${msUntilMidnight} millis`));
+    yield* _(Effect.logInfo(chalk`{bold.yellow It's midnight time. Restarting app...}`));
+    return yield* _(Effect.fail(new RestartRequested()));
   });
 
   yield* _(
     Effect.all(
       [
         Effect.all(
-          config.users.map((user) => runUserWorkflow(user, configStore, registrationSemaphore)),
+          config.users.map((user) => runUserWorkflow(user, configStore).pipe(Effect.provideService(RegistrationSemaphore, registrationSemaphore))),
           { concurrency: 'unbounded' },
         ),
         midnightCheck,

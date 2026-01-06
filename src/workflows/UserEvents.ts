@@ -1,6 +1,6 @@
 import { createInterface } from 'node:readline';
 import { chalk } from '@vegapunk/utilities';
-import { Effect, Ref } from 'effect';
+import { Deferred, Effect, Ref } from 'effect';
 import SteamTotp from 'steam-totp';
 import SteamUser from 'steam-user';
 
@@ -11,7 +11,7 @@ import { SteamClient, SteamEvent } from '../services/SteamService';
 import { Store } from '../services/StoreService';
 
 export interface UserWorkflowState {
-  readonly isLoggedOn: Ref.Ref<boolean>;
+  readonly loggedOn: Deferred.Deferred<void>;
   readonly isEnabled: Ref.Ref<boolean>;
   readonly isPlaying: Ref.Ref<boolean>;
   readonly familyState: Ref.Ref<Record<string, number>>;
@@ -45,7 +45,7 @@ export const handleLoggedOn = (
     yield* _(collectOwnGames(user, configStore, sessionStore));
     const sessionData = yield* _(sessionStore.get);
     yield* _(Effect.logInfo(`${user.username} owns ${sessionData.ownedGameList.length} games`));
-    yield* _(Ref.set(state.isLoggedOn, true));
+    yield* _(Deferred.succeed(state.loggedOn, undefined));
   });
 
 export const handleSteamGuard = (user: UserContext, event: Extract<SteamEvent, { type: 'steamGuard' }>) =>

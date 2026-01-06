@@ -42,10 +42,6 @@ const saveStore = <A>(filePath: string, data: A): Effect.Effect<void, StoreError
     const tempPath = `${filePath}.tmp`;
     yield* _(Effect.tryPromise(() => writeFile(tempPath, JSON.stringify(data))));
 
-    yield* _(
-      Effect.tryPromise(() => rename(filePath, `${filePath}.bak`)),
-      Effect.ignore,
-    );
     yield* _(Effect.tryPromise(() => rename(tempPath, filePath)));
   }).pipe(
     Effect.mapError((error) =>
@@ -61,8 +57,8 @@ export const makeStore = <A extends object, I, R>(
 ): Effect.Effect<Store<A>, StoreError, R | Scope.Scope> => {
   return Effect.gen(function* (_) {
     const dataRef = yield* _(Ref.make(initialData));
-    const isDirtyRef = yield* _(Ref.make(false));
     const delayRef = yield* _(Ref.make(initialDelay));
+    const dirtyRef = yield* _(Ref.make(false));
 
     const decode = Schema.decodeUnknown(schema);
 
@@ -74,22 +70,22 @@ export const makeStore = <A extends object, I, R>(
 
     yield* _(Ref.set(dataRef, validatedData));
 
-    const saveIfDirty = Effect.gen(function* (_) {
-      const isDirty = yield* _(Ref.get(isDirtyRef));
-      if (isDirty) {
-        const data = yield* _(Ref.get(dataRef));
-        yield* _(
-          saveStore(filePath, data),
-          Effect.tap(() => Ref.set(isDirtyRef, false)),
-          Effect.catchAll((error) => Effect.logError(`Store auto-save failed for ${filePath}`, error)),
-        );
-      }
+    const save = Effect.gen(function* (_) {
+      const isDirty = yield* _(Ref.get(dirtyRef));
+      if (!isDirty) return;
+
+      const data = yield* _(Ref.get(dataRef));
+      yield* _(
+        saveStore(filePath, data),
+        Effect.zipRight(Ref.set(dirtyRef, false)),
+        Effect.catchAll((error) => Effect.logError(`Store auto-save failed for ${filePath}`, error)),
+      );
     });
 
     const autoSaveLoop = Effect.gen(function* (_) {
       const delay = yield* _(Ref.get(delayRef));
+      yield* _(save);
       yield* _(Effect.sleep(`${Math.max(1000, delay)} millis`));
-      yield* _(saveIfDirty);
     }).pipe(Effect.repeat(Schedule.forever));
 
     const autoSaveFiber = yield* _(Effect.forkDaemon(autoSaveLoop));
@@ -99,21 +95,15 @@ export const makeStore = <A extends object, I, R>(
       Effect.addFinalizer(() =>
         Effect.gen(function* (_) {
           yield* _(Fiber.interrupt(autoSaveFiber));
-          yield* _(saveIfDirty);
+          yield* _(save);
         }).pipe(Effect.catchAllCause(() => Effect.void)),
       ),
     );
 
-    const triggerUpdate = (f: (data: A) => A) =>
-      Effect.gen(function* (_) {
-        yield* _(Ref.update(dataRef, f));
-        yield* _(Ref.set(isDirtyRef, true));
-      });
-
     return {
       get: Ref.get(dataRef),
-      set: (partial) => triggerUpdate((current) => ({ ...current, ...partial })),
-      update: (f) => triggerUpdate(f),
+      set: (partial) => Ref.update(dataRef, (current) => ({ ...current, ...partial })).pipe(Effect.zipRight(Ref.set(dirtyRef, true))),
+      update: (f) => Ref.update(dataRef, f).pipe(Effect.zipRight(Ref.set(dirtyRef, true))),
       setDelay: (delayMs) => Ref.set(delayRef, Math.max(1000, delayMs)),
     };
   });

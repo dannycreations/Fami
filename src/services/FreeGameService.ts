@@ -4,7 +4,7 @@ import SteamUser from 'steam-user';
 
 import { RATE_LIMIT_MIN_MS } from '../core/constants';
 import { catchAndLogUnlessTimeout, FreeGameError } from '../core/errors';
-import { SessionContext, UserContext } from '../core/schemas';
+import { RegistrationSemaphore, SessionContext, UserContext } from '../core/schemas';
 import { filterGames, parseAppIdsFromHtml } from '../core/utils';
 import { SteamClient, SteamRetryPolicy } from './SteamService';
 import { Store } from './StoreService';
@@ -34,15 +34,15 @@ const fetchSearchPage = (page: number) =>
     Effect.retry(SteamRetryPolicy),
   );
 
-export const collectFreeGames = (
-  user: UserContext,
-  configStore: Store<ConfigContext>,
-  sessionStore: Store<SessionContext>,
-  registrationSemaphore: Effect.Semaphore,
-) =>
+export const collectFreeGames = (user: UserContext, configStore: Store<ConfigContext>, sessionStore: Store<SessionContext>) =>
   Effect.gen(function* (_) {
-    const steamClient = yield* _(SteamClient);
     const configData = yield* _(configStore.get);
+
+    if (!configData.fetchFreeGames && !user.fetchFreeGames) {
+      return;
+    }
+
+    const steamClient = yield* _(SteamClient);
     const sessionData = yield* _(sessionStore.get);
 
     const claimExcludeIds = new Set([
@@ -90,9 +90,7 @@ export const collectFreeGames = (
     } else {
       yield* _(
         sessionStore.update((data) => {
-          // If no new games found on current page, check if we've stalled for too long
-          const isStalled = data.freeGameLength === data.freeGameList.length;
-          const nextLoop = isStalled ? data.lastLoop + 1 : data.lastLoop;
+          const nextLoop = data.lastLoop + 1;
           const shouldReset = nextLoop >= 5;
 
           return {
@@ -101,13 +99,13 @@ export const collectFreeGames = (
             lastPage: shouldReset ? 1 : data.lastPage,
             forceRegister: shouldReset ? true : data.forceRegister,
             freeGameIds: shouldReset ? [] : data.freeGameIds,
-            freeGameLength: data.freeGameList.length,
           };
         }),
       );
     }
 
-    yield* _(registrationSemaphore.withPermits(1)(registerFreeGames(user, configStore, sessionStore)));
+    const semaphore = yield* _(RegistrationSemaphore);
+    yield* _(semaphore.withPermits(1)(registerFreeGames(user, configStore, sessionStore)));
   });
 
 export const registerFreeGames = (user: UserContext, configStore: Store<ConfigContext>, sessionStore: Store<SessionContext>) =>

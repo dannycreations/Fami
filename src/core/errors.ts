@@ -21,8 +21,6 @@ export const catchAndLogUnlessTimeout =
     effect.pipe(
       Effect.catchAll((error) => {
         const message = error instanceof Error ? error.message : String(error);
-        const logAction = message !== TIMEOUT_MESSAGE ? Effect.logError(`${prefix}: ${message}`, error) : Effect.void;
-
-        return logAction.pipe(Effect.as(defaultValue));
+        return (message !== TIMEOUT_MESSAGE ? Effect.logError(`${prefix}: ${message}`, error) : Effect.void).pipe(Effect.as(defaultValue));
       }),
     );

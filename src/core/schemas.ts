@@ -1,4 +1,6 @@
-import { Schema } from 'effect';
+import { Context, Effect, Schema } from 'effect';
+
+export class RegistrationSemaphore extends Context.Tag('RegistrationSemaphore')<RegistrationSemaphore, Effect.Semaphore>() {}
 
 export const GameContext = Schema.Struct({
   name: Schema.String,
@@ -47,7 +49,6 @@ export const SessionContext = Schema.Struct({
   lastPage: Schema.Number,
   freeGameIds: Schema.Array(Schema.Number),
   freeGameList: Schema.Array(GameContext),
-  freeGameLength: Schema.Number,
   forceRegister: Schema.Boolean,
   ownedGameList: Schema.Array(GameContext),
   bannedGameIds: Schema.Array(Schema.Number),
@@ -59,7 +60,6 @@ export const INITIAL_SESSION: SessionContext = {
   lastPage: 1,
   freeGameIds: [],
   freeGameList: [],
-  freeGameLength: 0,
   forceRegister: false,
   ownedGameList: [],
   bannedGameIds: [],

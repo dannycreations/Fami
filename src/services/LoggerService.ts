@@ -13,14 +13,13 @@ interface LoggerOptions {
 }
 
 const createLogger = (options: LoggerOptions = {}): LoggerPino => {
-  options = {
-    level: process.env.NODE_ENV === 'development' ? 'debug' : 'info',
-    trace: false,
-    pretty: true,
-    exception: true,
-    rejection: true,
-    ...options,
-  };
+  const {
+    level = process.env.NODE_ENV === 'development' ? 'debug' : 'info',
+    trace = false,
+    pretty = true,
+    exception = true,
+    rejection = true,
+  } = options;
 
   const streams: StreamEntry[] = [
     {
@@ -32,7 +31,7 @@ const createLogger = (options: LoggerOptions = {}): LoggerPino => {
     },
   ];
 
-  if (options.trace) {
+  if (trace) {
     streams.push({
       level: 'trace',
       stream: pino.destination({
@@ -41,9 +40,10 @@ const createLogger = (options: LoggerOptions = {}): LoggerPino => {
       }),
     });
   }
-  if (options.pretty) {
+
+  if (pretty) {
     streams.push({
-      level: options.level,
+      level,
       stream: pinoPretty({
         colorize: true,
         translateTime: 'SYS:HH:MM:ss',
@@ -53,29 +53,28 @@ const createLogger = (options: LoggerOptions = {}): LoggerPino => {
     });
   } else {
     streams.push({
-      level: options.level,
+      level,
       stream: process.stdout,
     });
   }
 
   const instance = pino(
     {
-      level: options.level,
+      level,
       base: undefined,
       nestedKey: 'payload',
       hooks: {
         logMethod(args, method) {
-          // Winston style
           if (args.length >= 2) {
             const [arg0, arg1, ...rest] = args;
             if (typeof arg0 === 'string' && typeof arg1 === 'object') {
               return method.apply(this, [arg1, arg0, ...rest]);
-            } else if (args.every((r) => typeof r === 'string')) {
+            }
+
+            if (args.every((r) => typeof r === 'string')) {
               return method.apply(this, [args.join(' ')]);
             }
           }
-
-          // Pino style
           return method.apply(this, args);
         },
       },
@@ -83,13 +82,13 @@ const createLogger = (options: LoggerOptions = {}): LoggerPino => {
     pino.multistream(streams),
   );
 
-  if (options.exception) {
+  if (exception) {
     process.on('uncaughtException', (error, origin) => {
       instance.fatal({ error, origin }, 'UncaughtException');
     });
   }
 
-  if (options.rejection) {
+  if (rejection) {
     process.on('unhandledRejection', (reason, promise) => {
       instance.fatal({ reason, promise }, 'UnhandledRejection');
     });
