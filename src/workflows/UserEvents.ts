@@ -6,6 +6,7 @@ import SteamUser from 'steam-user';
 
 import { DEFAULT_SLEEP_DURATION, RATE_LIMIT_MIN_MS, USER_OFFLINE_STATE } from '../core/constants';
 import { ConfigContext, SessionContext, UserContext } from '../core/schemas';
+import { waitForConnection } from '../services/HttpService';
 import { collectOwnGames } from '../services/OwnGameService';
 import { SteamClient, SteamEvent } from '../services/SteamService';
 import { Store } from '../services/StoreService';
@@ -119,6 +120,7 @@ export const handleError = (user: UserContext, error: Error & { eresult?: number
         break;
       case SteamUser.EResult.NoConnection:
       case SteamUser.EResult.ServiceUnavailable:
+        yield* _(waitForConnection());
         break;
     }
 

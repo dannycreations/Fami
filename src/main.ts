@@ -5,7 +5,8 @@ import { chalk } from '@vegapunk/utilities';
 import { Data, Effect, Fiber } from 'effect';
 
 import { ConfigContext, INITIAL_CONFIG, RegistrationSemaphore } from './core/schemas';
-import { LoggerLive } from './services/LoggerService';
+import { HttpServiceLive } from './services/HttpService';
+import { LoggerServiceLive } from './services/LoggerService';
 import { runWithRestart } from './services/RuntimeService';
 import { makeStore } from './services/StoreService';
 import { runUserWorkflow } from './workflows/UserWorkflow';
@@ -60,7 +61,9 @@ const programWithCatch = program.pipe(
   }),
 );
 
-const fiber = Effect.runFork(runWithRestart(programWithCatch).pipe(Effect.provide(LoggerLive), Effect.scoped));
+const fiber = Effect.runFork(
+  runWithRestart(programWithCatch).pipe(Effect.provide(LoggerServiceLive), Effect.provide(HttpServiceLive), Effect.scoped),
+);
 
 process.on('SIGINT', () => {
   Effect.runPromise(Fiber.interrupt(fiber)).then(() => process.exit(0));

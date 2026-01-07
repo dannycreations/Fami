@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@vegapunk/request':
-        specifier: ^1.0.44
-        version: 1.0.44(typescript@5.9.3)
       '@vegapunk/utilities':
         specifier: ^1.0.78
         version: 1.0.78(typescript@5.9.3)
@@ -20,6 +17,9 @@ importers:
       effect:
         specifier: ^3.19.14
         version: 3.19.14
+      got:
+        specifier: 11.8.6
+        version: 11.8.6
       pino:
         specifier: ^10.1.0
         version: 10.1.0
@@ -35,6 +35,9 @@ importers:
       steamcommunity:
         specifier: ^3.49.0
         version: 3.49.0
+      user-agents:
+        specifier: ^1.1.669
+        version: 1.1.669
     devDependencies:
       '@ianvs/prettier-plugin-sort-imports':
         specifier: ^4.7.0
@@ -54,6 +57,9 @@ importers:
       '@types/steamcommunity':
         specifier: ^3.43.8
         version: 3.43.8
+      '@types/user-agents':
+        specifier: ^1.0.4
+        version: 1.0.4
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -431,11 +437,8 @@ packages:
   '@types/tough-cookie@4.0.5':
     resolution: {integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==}
 
-  '@vegapunk/request@1.0.44':
-    resolution: {integrity: sha512-+H0NG9sTItckCFCpVPocIbLjeOtlSdi9UiF6okCKH6s8TTnhl9BPCGMLbNqdQZ5b+lRdRrh3Rc9KxaSwXJl0Iw==}
-    engines: {node: '>=20'}
-    bundledDependencies:
-      - '@types/user-agents'
+  '@types/user-agents@1.0.4':
+    resolution: {integrity: sha512-AjeFc4oX5WPPflgKfRWWJfkEk7Wu82fnj1rROPsiqFt6yElpdGFg8Srtm/4PU4rA9UiDUZlruGPgcwTMQlwq4w==}
 
   '@vegapunk/utilities@1.0.78':
     resolution: {integrity: sha512-IF4zSOopqrXHCEqxrxjB3M12c4rimM8r8lj8w68Yz5xa3RR2WqGr11xunQIkKx99/ck+kpxZSEw8CkWQP5dWEQ==}
@@ -1541,17 +1544,7 @@ snapshots:
 
   '@types/tough-cookie@4.0.5': {}
 
-  '@vegapunk/request@1.0.44(typescript@5.9.3)':
-    dependencies:
-      '@vegapunk/utilities': 1.0.78(typescript@5.9.3)
-      got: 11.8.6
-      user-agents: 1.1.669
-    transitivePeerDependencies:
-      - '@types/react'
-      - immer
-      - react
-      - typescript
-      - use-sync-external-store
+  '@types/user-agents@1.0.4': {}
 
   '@vegapunk/utilities@1.0.78(typescript@5.9.3)':
     dependencies:

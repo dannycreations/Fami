@@ -1,4 +1,3 @@
-import { requestDefault } from '@vegapunk/request';
 import { Effect } from 'effect';
 import SteamUser from 'steam-user';
 
@@ -6,6 +5,7 @@ import { RATE_LIMIT_MIN_MS } from '../core/constants';
 import { catchAndLogUnlessTimeout, FreeGameError } from '../core/errors';
 import { RegistrationSemaphore, SessionContext, UserContext } from '../core/schemas';
 import { filterGames, parseAppIdsFromHtml } from '../core/utils';
+import { request } from './HttpService';
 import { SteamClient, SteamRetryPolicy } from './SteamService';
 import { Store } from './StoreService';
 
@@ -14,23 +14,19 @@ import type { ConfigContext } from '../core/schemas';
 const MAX_FREE_GAMES_BATCH = 50;
 
 const fetchSearchPage = (page: number) =>
-  Effect.tryPromise({
-    try: () =>
-      requestDefault({
-        url: 'https://store.steampowered.com/search/results',
-        searchParams: {
-          sort_by: 'Released_DESC',
-          force_infinite: 1,
-          maxprice: 'free',
-          category1: '998,10',
-          os: 'win',
-          page,
-        },
-        retry: -1,
-      }),
-    catch: (error) => new FreeGameError({ message: 'Failed to fetch HTML', originalError: error }),
+  request({
+    url: 'https://store.steampowered.com/search/results',
+    searchParams: {
+      sort_by: 'Released_DESC',
+      force_infinite: 1,
+      maxprice: 'free',
+      category1: '998,10',
+      os: 'win',
+      page,
+    },
+    retry: -1,
   }).pipe(
-    Effect.flatMap((res) => (res.isOk() ? Effect.succeed(res.unwrap()) : Effect.fail(new FreeGameError({ message: 'Response not OK' })))),
+    Effect.mapError((error) => new FreeGameError({ message: 'Failed to fetch HTML', originalError: error })),
     Effect.retry(SteamRetryPolicy),
   );
 

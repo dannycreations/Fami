@@ -6,6 +6,7 @@ import SteamUser from 'steam-user';
 import { AuthError } from '../core/errors';
 import { ConfigContext, INITIAL_SESSION, SessionContext, UserContext } from '../core/schemas';
 import { collectFreeGames } from '../services/FreeGameService';
+import { waitForConnection } from '../services/HttpService';
 import { startIdleGames } from '../services/IdleService';
 import { collectOwnGames } from '../services/OwnGameService';
 import { SteamClient, SteamClientLive } from '../services/SteamService';
@@ -28,8 +29,8 @@ const runLogin = (user: UserContext, steamClient: SteamClient) =>
       return yield* _(Effect.fail(new AuthError({ message: `No credentials found for ${user.username}` })));
     }
 
+    yield* _(waitForConnection());
     yield* _(Effect.logInfo(`${user.username} logging in with ${user.refreshToken ? 'refresh token' : 'password'}`));
-
     yield* _(steamClient.logOn(loginDetails));
   });
 
