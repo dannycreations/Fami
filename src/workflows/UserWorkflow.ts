@@ -17,24 +17,7 @@ const whenLoggedOn = (state: UserWorkflowState) => {
   return <A, E, R>(effect: Effect.Effect<A, E, R>) => Deferred.await(state.loggedOn).pipe(Effect.zipRight(effect));
 };
 
-const runLogin = (user: UserContext, steamClient: SteamClient) =>
-  Effect.gen(function* (_) {
-    const loginDetails = user.refreshToken
-      ? ({ refreshToken: user.refreshToken } satisfies SteamUser.LogOnDetailsRefresh)
-      : user.password
-        ? ({ accountName: user.username, password: user.password } satisfies SteamUser.LogOnDetailsNamePass)
-        : null;
-
-    if (!loginDetails) {
-      return yield* _(Effect.fail(new AuthError({ message: `No credentials found for ${user.username}` })));
-    }
-
-    yield* _(waitForConnection());
-    yield* _(Effect.logInfo(`${user.username} logging in with ${user.refreshToken ? 'refresh token' : 'password'}`));
-    yield* _(steamClient.logOn(loginDetails));
-  });
-
-const runCollectLoops = (user: UserContext, state: UserWorkflowState) => {
+const skdCollector = (user: UserContext, state: UserWorkflowState) => {
   const checkLoggedOn = whenLoggedOn(state);
 
   const ownGamesLoop = checkLoggedOn(
@@ -56,7 +39,7 @@ const runCollectLoops = (user: UserContext, state: UserWorkflowState) => {
   return Effect.all([ownGamesLoop, freeGamesLoop], { concurrency: 'unbounded' });
 };
 
-const runPresenceAndIdle = (user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
+const skdIdler = (user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
   Effect.gen(function* (_) {
     const checkLoggedOn = whenLoggedOn(state);
     const nextIdleTimeRef = yield* _(Ref.make(0));
@@ -70,9 +53,11 @@ const runPresenceAndIdle = (user: UserContext, steamClient: SteamClient, state: 
           yield* _(Ref.update(state.state, (s) => ({ ...s, isEnabled: false })));
         } else if (!hasFamilyOnline && !isPlaying) {
           const steamId = yield* _(steamClient.steamID);
-          const communityUser = yield* _(steamClient.getCommunityUser(steamId!));
-          if (communityUser && typeof communityUser.onlineState === 'string') {
-            yield* _(Ref.update(state.state, (s) => ({ ...s, isEnabled: communityUser.onlineState === 'offline' })));
+          if (steamId) {
+            const communityUser = yield* _(steamClient.getCommunityUser(steamId));
+            if (communityUser && typeof communityUser.onlineState === 'string') {
+              yield* _(Ref.update(state.state, (s) => ({ ...s, isEnabled: communityUser.onlineState === 'offline' })));
+            }
           }
         }
 
@@ -96,7 +81,24 @@ const runPresenceAndIdle = (user: UserContext, steamClient: SteamClient, state: 
     return yield* _(idleLoop);
   });
 
-const makeUserSession = (user: UserContext) =>
+const tryLogin = (user: UserContext, steamClient: SteamClient) =>
+  Effect.gen(function* (_) {
+    const loginDetails = user.refreshToken
+      ? ({ refreshToken: user.refreshToken } satisfies SteamUser.LogOnDetailsRefresh)
+      : user.password
+        ? ({ accountName: user.username, password: user.password } satisfies SteamUser.LogOnDetailsNamePass)
+        : null;
+
+    if (!loginDetails) {
+      return yield* _(Effect.fail(new AuthError({ message: `No credentials found for ${user.username}` })));
+    }
+
+    yield* _(waitForConnection());
+    yield* _(Effect.logInfo(`${user.username} logging in with ${user.refreshToken ? 'refresh token' : 'password'}`));
+    yield* _(steamClient.logOn(loginDetails));
+  });
+
+const createUserSession = (user: UserContext) =>
   Effect.gen(function* (_) {
     const steamClient = yield* _(SteamClient);
 
@@ -118,8 +120,7 @@ const makeUserSession = (user: UserContext) =>
 
           if (!hasIds && !isPlaying) return;
 
-          yield* _(steamClient.setPersona(hasIds ? SteamUser.EPersonaState.Online : SteamUser.EPersonaState.Invisible));
-          yield* _(steamClient.gamesPlayed(appIds));
+          yield* _(steamClient.updatePersonaAndGames(hasIds ? SteamUser.EPersonaState.Online : SteamUser.EPersonaState.Invisible, appIds));
           yield* _(Ref.update(stateRef, (s) => ({ ...s, isPlaying: hasIds })));
         }),
       reset: () =>
@@ -133,12 +134,7 @@ const makeUserSession = (user: UserContext) =>
 
     yield* _(
       Effect.all(
-        [
-          handleEvents,
-          runCollectLoops(user, state),
-          runPresenceAndIdle(user, steamClient, state),
-          runLogin(user, steamClient).pipe(Effect.andThen(Effect.never)),
-        ],
+        [handleEvents, skdCollector(user, state), skdIdler(user, steamClient, state), tryLogin(user, steamClient).pipe(Effect.andThen(Effect.never))],
         { concurrency: 'unbounded' },
       ),
     );
@@ -147,12 +143,12 @@ const makeUserSession = (user: UserContext) =>
 export const runUserWorkflow = (user: UserContext) =>
   Effect.gen(function* (_) {
     const sessionDir = join(process.cwd(), 'sessions', user.username);
-    const SessionStoreLive = StoreService(SessionStore, join(sessionDir, 'session.json'), SessionContext, INITIAL_SESSION, 600_000);
+    const sessionPath = join(sessionDir, 'session.json');
 
     yield* _(
-      makeUserSession(user).pipe(
+      createUserSession(user).pipe(
         Effect.provide(SteamService(sessionDir)),
-        Effect.provide(SessionStoreLive),
+        Effect.provide(StoreService(SessionStore, sessionPath, SessionContext, INITIAL_SESSION, 600_000)),
         Effect.scoped,
         Effect.retry(
           Schedule.spaced('10 seconds').pipe(Schedule.tapInput(() => Effect.logInfo(chalk`{yellow Retrying workflow for ${user.username}...}`))),

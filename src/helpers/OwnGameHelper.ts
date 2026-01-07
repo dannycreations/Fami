@@ -2,10 +2,9 @@ import { unionBy } from '@vegapunk/utilities/common';
 import { Effect } from 'effect';
 import SteamUser from 'steam-user';
 
-import { catchAndLogUnlessTimeout } from '../core/errors';
-import { RetryPolicy } from '../core/policies';
+import { catchAndLogUnlessTimeout, RetryTimeoutPolicy } from '../core/errors';
 import { ConfigStore, SessionStore, UserContext } from '../core/schemas';
-import { filterGames, userPreferences } from '../core/utils';
+import { getFilteredGames, userPreferences } from '../core/utils';
 import { SteamClient } from '../services/SteamService';
 
 export const collectOwnGames = (user: UserContext) =>
@@ -20,7 +19,7 @@ export const collectOwnGames = (user: UserContext) =>
     const configData = yield* _(configStore.get);
     const sessionData = yield* _(sessionStore.get);
 
-    const { whitelist, blacklist } = userPreferences(configData, user, sessionData.bannedGameIds);
+    const { whitelist } = userPreferences(configData, user, sessionData.bannedGameIds);
 
     const fetchApps = steamClient
       .getUserOwnedApps(steamId, {
@@ -29,12 +28,12 @@ export const collectOwnGames = (user: UserContext) =>
         skipUnvettedApps: false,
         includePlayedFreeGames: true,
       } as SteamUser.GetUserOwnedAppsOptions)
-      .pipe(RetryPolicy);
+      .pipe(RetryTimeoutPolicy);
 
     const apps = yield* _(
       fetchApps,
       Effect.map((r) => r.apps),
-      catchAndLogUnlessTimeout(`GameScanner: ${user.username} error during scan`, []),
+      catchAndLogUnlessTimeout(`${user.username} OwnGame scanning failed`, []),
     );
 
     const combinedGames = unionBy(
@@ -43,10 +42,7 @@ export const collectOwnGames = (user: UserContext) =>
       (game) => game.appId,
     );
 
-    const filteredGames = filterGames(combinedGames, {
-      whitelist,
-      blacklist,
-    });
+    const filteredGames = getFilteredGames(combinedGames, configData, user, sessionData.bannedGameIds);
 
     const newGames = filteredGames.filter((g) => !sessionData.ownedGameList.some((r) => r.appId === g.appId));
 

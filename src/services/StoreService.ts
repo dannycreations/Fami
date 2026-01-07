@@ -1,8 +1,9 @@
-import { mkdir, readFile, rename, writeFile } from 'fs/promises';
-import { dirname } from 'node:path';
+import { readFile, rename, writeFile } from 'node:fs/promises';
 import { parseJsonc } from '@vegapunk/utilities';
 import { defaultsDeep } from '@vegapunk/utilities/common';
 import { Context, Data, Effect, Fiber, Layer, Ref, Schedule, Schema, Scope } from 'effect';
+
+import { ensureDir } from '../core/utils';
 
 export class StoreError extends Data.TaggedError('StoreError')<{
   readonly message: string;
@@ -25,7 +26,7 @@ const loadStore = <A>(filePath: string, initialData: A): Effect.Effect<A, StoreE
     Effect.map((data) => defaultsDeep({}, data, initialData)),
     Effect.catchAll((error) => {
       if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-        return Effect.tryPromise(() => mkdir(dirname(filePath), { recursive: true })).pipe(
+        return ensureDir(filePath).pipe(
           Effect.flatMap(() => Effect.tryPromise(() => writeFile(filePath, JSON.stringify(initialData)))),
           Effect.as(initialData),
           Effect.mapError((error) => new StoreError({ message: `Failed to initialize store: ${filePath}`, store: error })),
@@ -37,8 +38,7 @@ const loadStore = <A>(filePath: string, initialData: A): Effect.Effect<A, StoreE
 
 const saveStore = <A>(filePath: string, data: A): Effect.Effect<void, StoreError> =>
   Effect.gen(function* (_) {
-    const dir = dirname(filePath);
-    yield* _(Effect.tryPromise(() => mkdir(dir, { recursive: true })));
+    yield* _(ensureDir(filePath));
 
     const tempPath = `${filePath}.tmp`;
     yield* _(Effect.tryPromise(() => writeFile(tempPath, JSON.stringify(data))));
@@ -50,7 +50,7 @@ const saveStore = <A>(filePath: string, data: A): Effect.Effect<void, StoreError
     ),
   );
 
-const makeStore = <A extends object, I, R>(
+const createStore = <A extends object, I, R>(
   filePath: string,
   schema: Schema.Schema<A, I, R>,
   initialData: A,
@@ -71,22 +71,16 @@ const makeStore = <A extends object, I, R>(
 
     yield* _(Ref.set(dataRef, validatedData));
 
-    const save = Effect.gen(function* (_) {
-      const isDirty = yield* _(Ref.getAndSet(dirtyRef, false));
-      if (!isDirty) return;
-
-      const data = yield* _(Ref.get(dataRef));
-      yield* _(
-        saveStore(filePath, data),
-        Effect.catchAll((error) =>
-          Effect.zipRight(
-            // Restore dirty flag on failure
-            Ref.set(dirtyRef, true),
-            Effect.logError(`Store auto-save failed for ${filePath}`, error),
-          ),
-        ),
-      );
-    });
+    const save = Ref.getAndSet(dirtyRef, false).pipe(
+      Effect.flatMap((isDirty) =>
+        isDirty
+          ? Ref.get(dataRef).pipe(
+              Effect.flatMap((data) => saveStore(filePath, data)),
+              Effect.catchAll((error) => Effect.zipRight(Ref.set(dirtyRef, true), Effect.logError(`Store auto-save failed for ${filePath}`, error))),
+            )
+          : Effect.void,
+      ),
+    );
 
     const autoSaveLoop = Effect.gen(function* (_) {
       const delay = yield* _(Ref.get(delayRef));
@@ -113,4 +107,4 @@ export const StoreService = <A extends object, I, R>(
   schema: Schema.Schema<A, I, R>,
   initialData: A,
   initialDelay: number = 1000,
-) => Layer.scoped(tag, makeStore(filePath, schema, initialData, initialDelay));
+): Layer.Layer<Store<A>, StoreError, R> => Layer.scoped(tag, createStore(filePath, schema, initialData, initialDelay));

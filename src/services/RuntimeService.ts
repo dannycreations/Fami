@@ -1,7 +1,8 @@
 import { chalk } from '@vegapunk/utilities';
-import { Data, Effect, Schedule } from 'effect';
+import { isErrorLike } from '@vegapunk/utilities/result';
+import { Cause, Data, Effect, Fiber, Schedule } from 'effect';
 
-class RestartRequested extends Data.TaggedError('RestartRequested') {}
+export class ScheduleRestart extends Data.TaggedError('ScheduleRestart') {}
 
 export interface RuntimeOptions {
   readonly maxRestarts?: number;
@@ -9,15 +10,30 @@ export interface RuntimeOptions {
   readonly restartDelayMs?: number;
 }
 
-export const runWithRestart = <A, E, R>(program: Effect.Effect<A, E, R>, options: RuntimeOptions = {}) => {
+export const runForkWithCleanUp = <A, E, R>(effect: Effect.Effect<A, E, R>): void => {
+  const fiber = Effect.runFork(effect as Effect.Effect<A, E>);
+  process.on('SIGINT', () => Effect.runPromise(Fiber.interrupt(fiber)).then(() => process.exit(0)));
+  process.on('SIGTERM', () => Effect.runPromise(Fiber.interrupt(fiber)).then(() => process.exit(0)));
+};
+
+export const skdWithRestart = <A, E, R>(program: Effect.Effect<A, E, R>, options: RuntimeOptions = {}): Effect.Effect<void, never, R> => {
   const { maxRestarts = 3, intervalMs = 60_000, restartDelayMs = 5_000 } = options;
   const restartTimes: number[] = [];
 
-  const loop: Effect.Effect<void, never, R> = Effect.gen(function* (_) {
+  const loop = Effect.gen(function* (_) {
     yield* _(
-      program,
-      Effect.catchAllCause((cause) =>
+      Effect.catchAllCause(program, (cause) =>
         Effect.gen(function* (_) {
+          // Check if failure is a requested restart to avoid counting it as a crash
+          const isRestart = Array.from(Cause.failures(cause)).some(
+            (error) => isErrorLike<{ _tag: string }>(error) && error._tag === 'ScheduleRestart',
+          );
+
+          if (isRestart) {
+            yield* _(Effect.logInfo(chalk`{bold.yellow Scheduled restart triggered.}`));
+            return;
+          }
+
           const now = Date.now();
           restartTimes.push(now);
 
@@ -39,15 +55,15 @@ export const runWithRestart = <A, E, R>(program: Effect.Effect<A, E, R>, options
     );
   });
 
-  return Effect.repeat(loop, Schedule.forever);
+  return Effect.repeat(loop, Schedule.forever).pipe(Effect.asVoid);
 };
 
-export const runMidnightRestart = Effect.gen(function* (_) {
+export const skdMidnightRestart = Effect.gen(function* (_) {
   const now = new Date();
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   const msUntilMidnight = tomorrow.getTime() - now.getTime();
 
   yield* _(Effect.sleep(`${msUntilMidnight} millis`));
   yield* _(Effect.logInfo(chalk`{bold.yellow It's midnight time. Restarting app...}`));
-  return yield* _(Effect.fail(new RestartRequested()));
+  return yield* _(Effect.fail(new ScheduleRestart()));
 });

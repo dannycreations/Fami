@@ -4,11 +4,14 @@ import { Deferred, Effect, Ref } from 'effect';
 import SteamTotp from 'steam-totp';
 import SteamUser from 'steam-user';
 
-import { DEFAULT_SLEEP_DURATION, RATE_LIMIT_MIN_MS, USER_OFFLINE_STATE } from '../core/constants';
 import { ConfigStore, SessionStore, UserContext } from '../core/schemas';
+import { getRateLimitSleep } from '../core/utils';
 import { collectOwnGames } from '../helpers/OwnGameHelper';
 import { waitForConnection } from '../services/HttpService';
 import { SteamClient, SteamEvent } from '../services/SteamService';
+
+export const DEFAULT_SLEEP_DURATION = '10 seconds';
+export const USER_OFFLINE_STATE = [SteamUser.EPersonaState.Offline, SteamUser.EPersonaState.Invisible] as const;
 
 export interface InternalState {
   readonly isEnabled: boolean;
@@ -79,7 +82,7 @@ const handleRateLimit = (user: UserContext) =>
   Effect.gen(function* (_) {
     const configStore = yield* _(ConfigStore);
     const cfg = yield* _(configStore.get);
-    const sleepMs = Math.max(cfg.refreshGames, RATE_LIMIT_MIN_MS);
+    const sleepMs = getRateLimitSleep(cfg.refreshGames);
     yield* _(Effect.logWarning(`${user.username} Rate Limit Exceeded. Sleeping for ${sleepMs / 60000}m...`));
     yield* _(Effect.sleep(`${sleepMs} millis`));
   });
@@ -159,26 +162,24 @@ export const handleUserUpdate = (
     const { family, isEnabled } = yield* _(Ref.get(state.state));
     const userId = event.steamId.toString();
     const steamId = yield* _(steamClient.steamID);
-    const selfId = steamId!.toString();
+    const selfId = steamId?.toString();
 
     const isSelf = selfId === userId || user.id === userId;
-    const isFamilyMember = family[userId] !== undefined;
+    const currentPersona = family[userId];
 
-    if (isSelf || !isFamilyMember) return;
+    if (isSelf || typeof currentPersona !== 'number') return;
 
     const personaState = event.user.persona_state;
-    // Skip if we don't have a valid persona state update and it's not the first time
-    if (family[userId] !== -1 && personaState === null) return;
+    // Skip if no valid update and not first time
+    if (currentPersona !== -1 && personaState === null) return;
 
     const userPersona = personaState ?? SteamUser.EPersonaState.Offline;
     const isUserOffline = USER_OFFLINE_STATE.includes(userPersona);
 
-    // Update family state tracking
     yield* _(Ref.update(state.state, (s) => ({ ...s, family: { ...s.family, [userId]: userPersona } })));
 
     if (isUserOffline) return;
 
-    // If a family member is online, disable idling
     if (isEnabled) {
       yield* _(Ref.update(state.state, (s) => ({ ...s, isEnabled: false })));
       yield* _(state.setGamesPlayed([]));
@@ -192,23 +193,18 @@ export const handleSteamEvent = (event: SteamEvent, user: UserContext, steamClie
   Effect.gen(function* (_) {
     const configStore = yield* _(ConfigStore);
 
-    switch (event.type) {
-      case 'loggedOn':
-        return yield* _(handleLoggedOn(user, steamClient, state));
-      case 'refreshToken':
-        return yield* _(
-          configStore.update((cfg) => ({
-            ...cfg,
-            users: cfg.users.map((u) => (u.username === user.username ? { ...u, refreshToken: event.token } : u)),
-          })),
-        );
-      case 'steamGuard':
-        return yield* _(handleSteamGuard(user, event));
-      case 'error':
-        return yield* _(handleError(user, event.error, state));
-      case 'vacBans':
-        return yield* _(handleVacBans(user, event));
-      case 'user':
-        return yield* _(handleUserUpdate(user, event, steamClient, state));
-    }
+    const handlers: { [K in SteamEvent['type']]: (event: Extract<SteamEvent, { type: K }>) => unknown } = {
+      loggedOn: () => handleLoggedOn(user, steamClient, state),
+      refreshToken: (e) =>
+        configStore.update((cfg) => ({
+          ...cfg,
+          users: cfg.users.map((u) => (u.username === user.username ? { ...u, refreshToken: e.token } : u)),
+        })),
+      steamGuard: (e) => handleSteamGuard(user, e),
+      error: (e) => handleError(user, e.error, state),
+      vacBans: (e) => handleVacBans(user, e),
+      user: (e) => handleUserUpdate(user, e, steamClient, state),
+    };
+
+    return yield* _((handlers[event.type] as Function)(event));
   });

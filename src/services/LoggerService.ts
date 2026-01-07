@@ -2,9 +2,21 @@ import { Logger, LogLevel } from 'effect';
 import pino from 'pino';
 import pinoPretty from 'pino-pretty';
 
+import type { ReadonlyRecord } from 'effect/Record';
 import type { Level, Logger as LoggerPino, StreamEntry } from 'pino';
 
-interface LoggerOptions {
+export const LOG_LEVEL_MAP: ReadonlyRecord<LogLevel.LogLevel['_tag'], pino.LevelWithSilent> = {
+  All: 'trace',
+  Trace: 'trace',
+  Debug: 'debug',
+  Info: 'info',
+  Warning: 'warn',
+  Error: 'error',
+  Fatal: 'fatal',
+  None: 'silent',
+};
+
+export interface LoggerOptions {
   readonly level?: Level;
   readonly trace?: boolean;
   readonly pretty?: boolean;
@@ -12,7 +24,7 @@ interface LoggerOptions {
   readonly rejection?: boolean;
 }
 
-const createLogger = (options: LoggerOptions = {}): LoggerPino => {
+export const createLogger = (options: LoggerOptions = {}): LoggerPino => {
   const {
     level = process.env.NODE_ENV === 'development' ? 'debug' : 'info',
     trace = false,
@@ -97,34 +109,11 @@ const createLogger = (options: LoggerOptions = {}): LoggerPino => {
   return instance;
 };
 
-const mapLogLevel = (level: LogLevel.LogLevel): pino.LevelWithSilent => {
-  switch (level._tag) {
-    case 'All':
-      return 'trace';
-    case 'Trace':
-      return 'trace';
-    case 'Debug':
-      return 'debug';
-    case 'Info':
-      return 'info';
-    case 'Warning':
-      return 'warn';
-    case 'Error':
-      return 'error';
-    case 'Fatal':
-      return 'fatal';
-    case 'None':
-      return 'silent';
-    default:
-      return 'info';
-  }
-};
-
-const createEffectLogger = (self: Logger.Logger<unknown, void>, logger: pino.Logger) =>
+export const LoggerService = (self: Logger.Logger<unknown, void>, logger: pino.Logger) =>
   Logger.replace(
     self,
     Logger.make(({ logLevel, message, cause }) => {
-      const level = mapLogLevel(logLevel);
+      const level = LOG_LEVEL_MAP[logLevel._tag] ?? 'info';
       const payload = Array.isArray(message) ? [...message] : [message];
 
       if (cause && cause._tag !== 'Empty') {
@@ -134,10 +123,3 @@ const createEffectLogger = (self: Logger.Logger<unknown, void>, logger: pino.Log
       (logger[level] as Function)(...payload);
     }),
   );
-
-const defaultLogger = createLogger({
-  exception: false,
-  rejection: false,
-});
-
-export const LoggerService = createEffectLogger(Logger.defaultLogger, defaultLogger);

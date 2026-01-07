@@ -1,10 +1,9 @@
 import { lookup } from 'node:dns/promises';
 import { defaultsDeep } from '@vegapunk/utilities/common';
+import { isErrorLike } from '@vegapunk/utilities/result';
 import { Context, Data, Effect, Layer, Schedule } from 'effect';
 import got from 'got';
 import UserAgent from 'user-agents';
-
-import { TIMEOUT_MESSAGE } from '../core/constants';
 
 import type { CancelableRequest, Got, Options, RequestError, Response } from 'got';
 
@@ -46,68 +45,57 @@ export interface HttpService {
 
 const gotInstance: Got = got.bind(got);
 const userAgent = new UserAgent({ deviceCategory: 'desktop' });
-const HttpClient = Context.GenericTag<HttpService>('@services/HttpClient');
+export const HttpClient = Context.GenericTag<HttpService>('@services/HttpClient');
 
 const requestImpl = <T = string>(options: string | DefaultOptions): Effect.Effect<Response<T>, HttpRequestError> => {
-  const payload = defaultsDeep(
-    {},
-    {
-      url: typeof options === 'string' ? options : undefined,
-      ...(typeof options === 'object' ? options : {}),
-    },
-    {
-      headers: { 'user-agent': userAgent.toString() },
-      http2: true,
-    },
-  );
-
-  const retryCount = typeof options === 'object' ? (options.retry ?? 3) : 3;
-  const { initial = 10_000, transmission = 30_000, total = 60_000 } = payload.timeout || {};
-
-  const performRequest = Effect.async<Response<T>, HttpRequestError>((resume) => {
-    const instance = gotInstance({
-      ...payload,
-      retry: 0,
-      timeout: {
-        lookup: initial,
-        connect: initial,
-        secureConnect: initial,
-        socket: transmission,
-        response: transmission,
-        send: transmission,
-        request: total,
-      },
-      resolveBodyOnly: false,
-    } satisfies Options) as CancelableRequest<Response<T>>;
-
-    instance
-      .then((res) => resume(Effect.succeed(res)))
-      .catch((error) =>
-        resume(
-          Effect.fail(
-            new HttpRequestError({
-              message: error.message || 'Request failed',
-              code: (error as RequestError).code,
-              status: (error as RequestError).response?.statusCode,
-              request: error,
-            }),
-          ),
-        ),
-      );
-    return Effect.sync(() => instance.cancel());
+  const isString = typeof options === 'string';
+  const payload = defaultsDeep({}, isString ? { url: options } : options, {
+    headers: { 'user-agent': userAgent.toString() },
+    http2: true,
   });
 
-  return performRequest.pipe(
-    Effect.retry(
-      Schedule.intersect(
-        Schedule.recurWhile((error: HttpRequestError) => {
-          const isNetworkError = error.code ? ERROR_CODES.includes(error.code) : false;
-          const isRetryableStatus = error.status ? ERROR_STATUS_CODES.includes(error.status) : false;
-          return isNetworkError || isRetryableStatus || error.message === TIMEOUT_MESSAGE;
-        }),
-        retryCount < 0 ? Schedule.forever : Schedule.recurs(retryCount),
-      ),
-    ),
+  const retryCount = isString ? 3 : (options.retry ?? 3);
+  const { initial = 10_000, transmission = 30_000, total = 60_000 } = payload.timeout || {};
+
+  return Effect.tryPromise({
+    try: (signal) => {
+      const promise = gotInstance({
+        ...payload,
+        retry: 0,
+        timeout: {
+          lookup: initial,
+          connect: initial,
+          secureConnect: initial,
+          socket: transmission,
+          response: transmission,
+          send: transmission,
+          request: total,
+        },
+        resolveBodyOnly: false,
+      } as Options) as CancelableRequest<Response<T>>;
+
+      signal.addEventListener('abort', () => promise.cancel(), { once: true });
+
+      return promise;
+    },
+    catch: (error) => {
+      const err = error as RequestError;
+      return new HttpRequestError({
+        message: err.message || 'Request failed',
+        code: err.code,
+        status: err.response?.statusCode,
+        request: error,
+      });
+    },
+  }).pipe(
+    Effect.retry({
+      while: (error) => {
+        const isNetworkError = !!error.code && ERROR_CODES.includes(error.code);
+        const isRetryableStatus = !!error.status && ERROR_STATUS_CODES.includes(error.status);
+        return isNetworkError || isRetryableStatus || isErrorTimeout(error);
+      },
+      schedule: retryCount < 0 ? Schedule.forever : Schedule.recurs(retryCount),
+    }),
   );
 };
 
@@ -129,6 +117,10 @@ const waitForConnectionImpl = (retryMs: number = 10_000): Effect.Effect<void, Ht
   });
 
   return Effect.race(checkGoogle, checkApple).pipe(Effect.retry(Schedule.spaced(`${retryMs} millis`)), Effect.asVoid);
+};
+
+export const isErrorTimeout = (error: unknown): boolean => {
+  return isErrorLike<{ _tag: string }>(error) && (error._tag === 'TimeoutException' || error.code === 'ETIMEDOUT');
 };
 
 export const request = <T = string>(options: string | DefaultOptions) => Effect.flatMap(HttpClient, (service) => service.request<T>(options));

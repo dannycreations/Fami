@@ -1,16 +1,27 @@
+import { mkdir } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { Effect } from 'effect';
+
 import { ConfigContext, GameContext, UserContext } from './schemas';
 
+export const RATE_LIMIT_MIN_MS = 1_800_000;
 export const EXCLUDED_GAME_NAME_PATTERN = /\b(?:Beta|Demo|P(?:laytest|TS)|Public (?:Beta|Test)|Test|Unstable)\b/i;
+
+export const userPreferences = (config: ConfigContext, user: UserContext, bannedIds: readonly number[] = []) => {
+  const whitelist = new Set([...(config.whitelistGameIds || []), ...(user.whitelistGameIds || [])]);
+  const blacklist = new Set([...(config.blacklistGameIds || []), ...(user.blacklistGameIds || []), ...bannedIds]);
+  return { whitelist, blacklist };
+};
 
 export const filterGames = (
   games: readonly GameContext[],
   options: {
-    whitelist?: ReadonlySet<number>;
-    blacklist?: ReadonlySet<number>;
+    whitelist: ReadonlySet<number>;
+    blacklist: ReadonlySet<number>;
     excludePatterns?: boolean;
   },
 ) => {
-  const { whitelist = new Set<number>(), blacklist = new Set<number>(), excludePatterns = true } = options;
+  const { whitelist, blacklist, excludePatterns = true } = options;
 
   return games.filter((game) => {
     if (whitelist.has(game.appId)) return true;
@@ -20,10 +31,9 @@ export const filterGames = (
   });
 };
 
-export const userPreferences = (config: ConfigContext, user: UserContext, bannedIds: readonly number[] = []) => {
-  const whitelist = new Set([...(config.whitelistGameIds || []), ...(user.whitelistGameIds || [])]);
-  const blacklist = new Set([...(config.blacklistGameIds || []), ...(user.blacklistGameIds || []), ...bannedIds]);
-  return { whitelist, blacklist };
+export const getFilteredGames = (games: readonly GameContext[], config: ConfigContext, user: UserContext, bannedIds: readonly number[] = []) => {
+  const prefs = userPreferences(config, user, bannedIds);
+  return filterGames(games, prefs);
 };
 
 export const parseAppIdsFromHtml = (html: string): number[] => {
@@ -31,3 +41,7 @@ export const parseAppIdsFromHtml = (html: string): number[] => {
   if (!matches) return [];
   return [...new Set(matches.flatMap((m) => m.match(/\d+/g) || []).map(Number))];
 };
+
+export const getRateLimitSleep = (refreshGames: number) => Math.max(refreshGames, RATE_LIMIT_MIN_MS);
+
+export const ensureDir = (path: string) => Effect.tryPromise(() => mkdir(dirname(path), { recursive: true }));
