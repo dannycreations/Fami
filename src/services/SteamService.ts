@@ -110,6 +110,10 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, ne
         try: promise,
         catch: (error) => {
           const err = error as Error & { eresult?: number };
+          // Suppress internal "timed out" errors
+          if (err.message.toLowerCase().includes('timed out')) {
+            return new Cause.TimeoutException();
+          }
           return new SteamError({
             message: err.message,
             eresult: err.eresult,
