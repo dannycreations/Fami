@@ -2,7 +2,6 @@ import { lookup } from 'node:dns/promises';
 import { defaultsDeep } from '@vegapunk/utilities/common';
 import { Context, Data, Effect, Layer, Schedule } from 'effect';
 import got from 'got';
-import { TimeoutError } from 'got/dist/source/core/utils/timed-out';
 import UserAgent from 'user-agents';
 
 import type { CancelableRequest, Got, Options, RequestError, Response } from 'got';
@@ -67,68 +66,42 @@ const requestImpl = <T = string>(options: string | DefaultOptions): Effect.Effec
     const instance = gotInstance({
       ...payload,
       retry: 0,
-      timeout: undefined,
+      timeout: {
+        lookup: initial,
+        connect: initial,
+        secureConnect: initial,
+        socket: transmission,
+        response: transmission,
+        send: transmission,
+        request: total,
+      },
       resolveBodyOnly: false,
     } satisfies Options) as CancelableRequest<Response<T>>;
 
-    const start = Date.now();
-    let activityTimeoutId: NodeJS.Timeout | undefined;
-
-    const resetActivityTimeout = (ms: number) => {
-      if (activityTimeoutId) clearTimeout(activityTimeoutId);
-      activityTimeoutId = setTimeout(() => instance.cancel(), ms);
-    };
-
-    resetActivityTimeout(initial);
-
     instance
-      .on('uploadProgress', () => resetActivityTimeout(transmission))
-      .on('downloadProgress', () => resetActivityTimeout(transmission))
-      .then((res) => {
-        if (activityTimeoutId) clearTimeout(activityTimeoutId);
-        resume(Effect.succeed(res));
-      })
-      .catch((error) => {
-        if (activityTimeoutId) clearTimeout(activityTimeoutId);
-        let finalError = error;
-        if (instance.isCanceled) {
-          finalError = new TimeoutError(Date.now() - start, 'request');
-        }
+      .then((res) => resume(Effect.succeed(res)))
+      .catch((error) =>
         resume(
           Effect.fail(
             new HttpRequestError({
-              message: finalError.message || 'Request failed',
-              code: (finalError as RequestError).code,
-              status: (finalError as RequestError).response?.statusCode,
-              request: finalError,
+              message: error.message || 'Request failed',
+              code: (error as RequestError).code,
+              status: (error as RequestError).response?.statusCode,
+              request: error,
             }),
           ),
-        );
-      });
-
-    return Effect.sync(() => {
-      if (activityTimeoutId) clearTimeout(activityTimeoutId);
-      instance.cancel();
-    });
+        ),
+      );
+    return Effect.sync(() => instance.cancel());
   });
 
   return performRequest.pipe(
-    Effect.timeout(total),
-    Effect.catchTag('TimeoutException', () =>
-      Effect.fail(
-        new HttpRequestError({
-          message: 'Request timed out',
-          code: 'ETIMEDOUT',
-          request: new TimeoutError(total, 'request'),
-        }),
-      ),
-    ),
     Effect.retry(
       Schedule.intersect(
         Schedule.recurWhile((error: HttpRequestError) => {
-          const flagOne = error.code ? ERROR_CODES.includes(error.code) : false;
-          const flagTwo = error.status ? ERROR_STATUS_CODES.includes(error.status) : false;
-          return flagOne || flagTwo;
+          const isNetworkError = error.code ? ERROR_CODES.includes(error.code) : false;
+          const isRetryableStatus = error.status ? ERROR_STATUS_CODES.includes(error.status) : false;
+          return isNetworkError || isRetryableStatus;
         }),
         retryCount < 0 ? Schedule.forever : Schedule.recurs(retryCount),
       ),

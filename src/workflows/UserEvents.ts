@@ -122,7 +122,7 @@ export const handleError = (user: UserContext, error: Error & { eresult?: number
         break;
     }
 
-    yield* _(Effect.logWarning(chalk`{yellow ${user.username} session ended, restarting...}`));
+    yield* _(Effect.logInfo(chalk`{yellow ${user.username} session ended, restarting...}`));
     yield* _(Effect.fail(error));
   });
 

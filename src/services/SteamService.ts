@@ -106,7 +106,11 @@ const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, neve
       }).pipe(
         Effect.timeout(timeout),
         Effect.catchTag('TimeoutException', () =>
-          Effect.fail(new SteamError({ message: errorMessage.includes('timed out') ? errorMessage : `${errorMessage} timed out` })),
+          Effect.fail(
+            new SteamError({
+              message: errorMessage.includes('timed out') ? errorMessage : `${errorMessage} timed out`,
+            }),
+          ),
         ),
       );
 

@@ -85,21 +85,13 @@ const makeStore = <A extends object, I, R>(
 
     const autoSaveLoop = Effect.gen(function* (_) {
       const delay = yield* _(Ref.get(delayRef));
-      yield* _(save);
       yield* _(Effect.sleep(`${Math.max(1000, delay)} millis`));
+      yield* _(save);
     }).pipe(Effect.repeat(Schedule.forever));
 
     const autoSaveFiber = yield* _(Effect.forkDaemon(autoSaveLoop));
 
-    // Handle lifecycle using finalizer
-    yield* _(
-      Effect.addFinalizer(() =>
-        Effect.gen(function* (_) {
-          yield* _(Fiber.interrupt(autoSaveFiber));
-          yield* _(save);
-        }).pipe(Effect.catchAllCause(() => Effect.void)),
-      ),
-    );
+    yield* _(Effect.addFinalizer(() => Effect.zipRight(Fiber.interrupt(autoSaveFiber), save).pipe(Effect.catchAllCause(() => Effect.void))));
 
     return {
       get: Ref.get(dataRef),

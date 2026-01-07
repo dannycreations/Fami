@@ -14,11 +14,16 @@ export class SteamError extends Data.TaggedError('SteamError')<BaseErrorInfo & {
 export class AuthError extends Data.TaggedError('AuthError')<BaseErrorInfo> {}
 
 export const catchAndLogUnlessTimeout =
-  <A, E, R, B>(prefix: string, defaultValue: B) =>
-  (effect: Effect.Effect<A, E, R>) =>
-    effect.pipe(
-      Effect.catchAll((error) => {
-        const message = error instanceof Error ? error.message : String(error);
-        return (message !== TIMEOUT_MESSAGE ? Effect.logError(`${prefix}: ${message}`, error) : Effect.void).pipe(Effect.as(defaultValue));
-      }),
-    );
+  <B>(prefix: string, defaultValue: B) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A | B, never, R> =>
+    Effect.catchAll(effect, (error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      const isTimeout =
+        message === TIMEOUT_MESSAGE || (typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'TimeoutException');
+
+      if (isTimeout) {
+        return Effect.succeed(defaultValue);
+      }
+
+      return Effect.logError(`${prefix}: ${message}`, error).pipe(Effect.as(defaultValue));
+    });

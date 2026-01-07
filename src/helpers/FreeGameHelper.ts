@@ -120,14 +120,13 @@ export const registerFreeGames = (user: UserContext) =>
 
     yield* _(
       steamClient.requestFreeLicense([...gameIdsToRegister]),
-      Effect.catchAll((error) =>
+      Effect.tapError((error) =>
         Effect.gen(function* (_) {
           if (error?.eresult === SteamUser.EResult.RateLimitExceeded) {
             const waitMs = Math.max(configData.refreshGames, RATE_LIMIT_MIN_MS);
             yield* _(Effect.logWarning(`FreeGame: ${user.username} Rate Limit Exceeded. Waiting ${waitMs / 60000}m...`));
             yield* _(Effect.sleep(`${waitMs} millis`));
           }
-          return yield* _(Effect.fail(error));
         }),
       ),
       Effect.retry(SteamRetryPolicy),
