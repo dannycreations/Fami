@@ -1,4 +1,4 @@
-import { GameContext } from './schemas';
+import { ConfigContext, GameContext, UserContext } from './schemas';
 
 export const EXCLUDED_GAME_NAME_PATTERN = /\b(?:Beta|Demo|P(?:laytest|TS)|Public (?:Beta|Test)|Test|Unstable)\b/i;
 
@@ -18,6 +18,12 @@ export const filterGames = (
     if (excludePatterns && EXCLUDED_GAME_NAME_PATTERN.test(game.name)) return false;
     return true;
   });
+};
+
+export const userPreferences = (config: ConfigContext, user: UserContext, bannedIds: readonly number[] = []) => {
+  const whitelist = new Set([...(config.whitelistGameIds || []), ...(user.whitelistGameIds || [])]);
+  const blacklist = new Set([...(config.blacklistGameIds || []), ...(user.blacklistGameIds || []), ...bannedIds]);
+  return { whitelist, blacklist };
 };
 
 export const parseAppIdsFromHtml = (html: string): number[] => {

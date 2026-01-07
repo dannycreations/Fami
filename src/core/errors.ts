@@ -25,5 +25,5 @@ export const catchAndLogUnlessTimeout =
         return Effect.succeed(defaultValue);
       }
 
-      return Effect.logError(`${prefix}: ${message}`, error).pipe(Effect.as(defaultValue));
+      return Effect.logError(message, error).pipe(Effect.annotateLogs('context', prefix), Effect.as(defaultValue));
     });

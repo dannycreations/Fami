@@ -72,14 +72,19 @@ const makeStore = <A extends object, I, R>(
     yield* _(Ref.set(dataRef, validatedData));
 
     const save = Effect.gen(function* (_) {
-      const isDirty = yield* _(Ref.get(dirtyRef));
+      const isDirty = yield* _(Ref.getAndSet(dirtyRef, false));
       if (!isDirty) return;
 
       const data = yield* _(Ref.get(dataRef));
       yield* _(
         saveStore(filePath, data),
-        Effect.zipRight(Ref.set(dirtyRef, false)),
-        Effect.catchAll((error) => Effect.logError(`Store auto-save failed for ${filePath}`, error)),
+        Effect.catchAll((error) =>
+          Effect.zipRight(
+            // Restore dirty flag on failure
+            Ref.set(dirtyRef, true),
+            Effect.logError(`Store auto-save failed for ${filePath}`, error),
+          ),
+        ),
       );
     });
 

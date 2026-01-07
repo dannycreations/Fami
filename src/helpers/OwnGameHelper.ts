@@ -3,9 +3,10 @@ import { Effect } from 'effect';
 import SteamUser from 'steam-user';
 
 import { catchAndLogUnlessTimeout } from '../core/errors';
+import { RetryPolicy } from '../core/policies';
 import { ConfigStore, SessionStore, UserContext } from '../core/schemas';
-import { filterGames } from '../core/utils';
-import { SteamClient, SteamRetryPolicy } from '../services/SteamService';
+import { filterGames, userPreferences } from '../core/utils';
+import { SteamClient } from '../services/SteamService';
 
 export const collectOwnGames = (user: UserContext) =>
   Effect.gen(function* (_) {
@@ -19,8 +20,7 @@ export const collectOwnGames = (user: UserContext) =>
     const configData = yield* _(configStore.get);
     const sessionData = yield* _(sessionStore.get);
 
-    const includedIds = new Set([...(configData.whitelistGameIds || []), ...(user.whitelistGameIds || [])]);
-    const excludedIds = new Set([...(configData.blacklistGameIds || []), ...(user.blacklistGameIds || []), ...sessionData.bannedGameIds]);
+    const { whitelist, blacklist } = userPreferences(configData, user, sessionData.bannedGameIds);
 
     const fetchApps = steamClient
       .getUserOwnedApps(steamId, {
@@ -29,7 +29,7 @@ export const collectOwnGames = (user: UserContext) =>
         skipUnvettedApps: false,
         includePlayedFreeGames: true,
       } as SteamUser.GetUserOwnedAppsOptions)
-      .pipe(Effect.retry(SteamRetryPolicy));
+      .pipe(RetryPolicy);
 
     const apps = yield* _(
       fetchApps,
@@ -39,13 +39,13 @@ export const collectOwnGames = (user: UserContext) =>
 
     const combinedGames = unionBy(
       apps.map((a) => ({ appId: a.appid, name: a.name || 'unknown' })),
-      [...includedIds].map((appId) => ({ appId, name: 'unknown' })),
+      [...whitelist].map((appId) => ({ appId, name: 'unknown' })),
       (game) => game.appId,
     );
 
     const filteredGames = filterGames(combinedGames, {
-      whitelist: includedIds,
-      blacklist: excludedIds,
+      whitelist,
+      blacklist,
     });
 
     const newGames = filteredGames.filter((g) => !sessionData.ownedGameList.some((r) => r.appId === g.appId));

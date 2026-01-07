@@ -1,4 +1,4 @@
-import { Context, Duration, Effect, Layer, Schedule, Scope, Stream } from 'effect';
+import { Context, Duration, Effect, Layer, Scope, Stream } from 'effect';
 import SteamUser from 'steam-user';
 import SteamCommunity from 'steamcommunity';
 import CSteamUser from 'steamcommunity/classes/CSteamUser';
@@ -19,8 +19,6 @@ export type SteamEvent =
     }
   | { readonly type: 'user'; readonly steamId: NonNullable<SteamUser['steamID']>; readonly user: UserStatus }
   | { readonly type: 'vacBans'; readonly numBans: number; readonly appids: number[] };
-
-export const SteamRetryPolicy = Schedule.recurs(3).pipe(Schedule.whileInput((error: Error) => error.message === TIMEOUT_MESSAGE));
 
 export interface SteamClient {
   readonly user: SteamUser;

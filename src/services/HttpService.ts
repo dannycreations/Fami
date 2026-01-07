@@ -4,6 +4,8 @@ import { Context, Data, Effect, Layer, Schedule } from 'effect';
 import got from 'got';
 import UserAgent from 'user-agents';
 
+import { TIMEOUT_MESSAGE } from '../core/constants';
+
 import type { CancelableRequest, Got, Options, RequestError, Response } from 'got';
 
 export class HttpRequestError extends Data.TaggedError('HttpRequestError')<{
@@ -101,7 +103,7 @@ const requestImpl = <T = string>(options: string | DefaultOptions): Effect.Effec
         Schedule.recurWhile((error: HttpRequestError) => {
           const isNetworkError = error.code ? ERROR_CODES.includes(error.code) : false;
           const isRetryableStatus = error.status ? ERROR_STATUS_CODES.includes(error.status) : false;
-          return isNetworkError || isRetryableStatus;
+          return isNetworkError || isRetryableStatus || error.message === TIMEOUT_MESSAGE;
         }),
         retryCount < 0 ? Schedule.forever : Schedule.recurs(retryCount),
       ),

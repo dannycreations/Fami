@@ -3,10 +3,11 @@ import SteamUser from 'steam-user';
 
 import { RATE_LIMIT_MIN_MS } from '../core/constants';
 import { catchAndLogUnlessTimeout, FreeGameError } from '../core/errors';
+import { RetryPolicy } from '../core/policies';
 import { ConfigStore, RegistrationSemaphore, SessionStore, UserContext } from '../core/schemas';
-import { filterGames, parseAppIdsFromHtml } from '../core/utils';
+import { filterGames, parseAppIdsFromHtml, userPreferences } from '../core/utils';
 import { request } from '../services/HttpService';
-import { SteamClient, SteamRetryPolicy } from '../services/SteamService';
+import { SteamClient } from '../services/SteamService';
 
 const MAX_FREE_GAMES_BATCH = 50;
 
@@ -24,7 +25,7 @@ const fetchSearchPage = (page: number) =>
     retry: -1,
   }).pipe(
     Effect.mapError((error) => new FreeGameError({ message: 'Failed to fetch HTML', originalError: error })),
-    Effect.retry(SteamRetryPolicy),
+    RetryPolicy,
   );
 
 export const collectFreeGames = (user: UserContext) =>
@@ -40,12 +41,7 @@ export const collectFreeGames = (user: UserContext) =>
     const steamClient = yield* _(SteamClient);
     const sessionData = yield* _(sessionStore.get);
 
-    const claimExcludeIds = new Set([
-      ...(configData.blacklistGameIds || []),
-      ...(user.blacklistGameIds || []),
-      ...sessionData.bannedGameIds,
-      ...sessionData.ownedGameList.map((g) => g.appId),
-    ]);
+    const { blacklist } = userPreferences(configData, user, [...sessionData.bannedGameIds, ...sessionData.ownedGameList.map((g) => g.appId)]);
 
     const result = yield* _(
       fetchSearchPage(sessionData.lastPage),
@@ -54,7 +50,7 @@ export const collectFreeGames = (user: UserContext) =>
     );
 
     if (result.length > 0) {
-      const appIdsToCheck = result.filter((id) => !claimExcludeIds.has(id) && !sessionData.freeGameIds.includes(id));
+      const appIdsToCheck = result.filter((id) => !blacklist.has(id) && !sessionData.freeGameIds.includes(id));
 
       if (appIdsToCheck.length > 0) {
         const productInfo = yield* _(
@@ -68,7 +64,7 @@ export const collectFreeGames = (user: UserContext) =>
             .filter(({ common }) => common && common.releasestate === 'released' && common.type?.toLowerCase() === 'game')
             .map(({ appId, common }) => ({ name: common!.name, appId }));
 
-          const filteredGames = filterGames(newFreeGames, { blacklist: claimExcludeIds });
+          const filteredGames = filterGames(newFreeGames, { blacklist });
 
           if (filteredGames.length > 0) {
             yield* _(
@@ -129,7 +125,7 @@ export const registerFreeGames = (user: UserContext) =>
           }
         }),
       ),
-      Effect.retry(SteamRetryPolicy),
+      RetryPolicy,
       catchAndLogUnlessTimeout(`FreeGame: ${user.username} error during registration`, undefined),
     );
 

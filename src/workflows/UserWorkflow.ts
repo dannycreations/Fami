@@ -6,7 +6,7 @@ import SteamUser from 'steam-user';
 import { AuthError } from '../core/errors';
 import { ConfigStore, INITIAL_SESSION, SessionContext, SessionStore, UserContext } from '../core/schemas';
 import { collectFreeGames } from '../helpers/FreeGameHelper';
-import { startIdleGames } from '../helpers/IdleHelper';
+import { startIdleGames } from '../helpers/IdleGameHelper';
 import { collectOwnGames } from '../helpers/OwnGameHelper';
 import { waitForConnection } from '../services/HttpService';
 import { SteamClient, SteamService } from '../services/SteamService';
@@ -63,32 +63,31 @@ const runPresenceAndIdle = (user: UserContext, steamClient: SteamClient, state: 
 
     const idleLoop = checkLoggedOn(
       Effect.gen(function* (_) {
-        const playing = yield* _(Ref.get(state.isPlaying));
-        const family = yield* _(Ref.get(state.familyState));
+        const { isPlaying, family } = yield* _(Ref.get(state.state));
         const hasFamilyOnline = Object.values(family).some((s) => s > 0);
 
         if (hasFamilyOnline) {
-          yield* _(Ref.set(state.isEnabled, false));
-        } else if (!hasFamilyOnline && !playing) {
-          // If no family online and not already playing, check community status (self presence)
+          yield* _(Ref.update(state.state, (s) => ({ ...s, isEnabled: false })));
+        } else if (!hasFamilyOnline && !isPlaying) {
           const steamId = yield* _(steamClient.steamID);
           const communityUser = yield* _(steamClient.getCommunityUser(steamId!));
           if (communityUser && typeof communityUser.onlineState === 'string') {
-            yield* _(Ref.set(state.isEnabled, communityUser.onlineState === 'offline'));
+            yield* _(Ref.update(state.state, (s) => ({ ...s, isEnabled: communityUser.onlineState === 'offline' })));
           }
         }
 
-        if (yield* _(Ref.get(state.isEnabled))) {
+        const currentState = yield* _(Ref.get(state.state));
+        if (currentState.isEnabled) {
           if (Date.now() > (yield* _(Ref.get(nextIdleTimeRef)))) {
             const nextTime = yield* _(startIdleGames(user.username));
             yield* _(Ref.set(nextIdleTimeRef, nextTime));
-            yield* _(Ref.set(state.isPlaying, true));
+            yield* _(Ref.update(state.state, (s) => ({ ...s, isPlaying: true })));
           }
         } else {
           yield* _(Ref.set(nextIdleTimeRef, 0));
-          if (playing) {
+          if (isPlaying) {
             yield* _(state.setGamesPlayed([]));
-            yield* _(Ref.set(state.isPlaying, false));
+            yield* _(Ref.update(state.state, (s) => ({ ...s, isPlaying: false })));
           }
         }
       }),
@@ -101,27 +100,31 @@ const makeUserSession = (user: UserContext) =>
   Effect.gen(function* (_) {
     const steamClient = yield* _(SteamClient);
 
-    const isPlaying = yield* _(Ref.make(false));
+    const stateRef = yield* _(
+      Ref.make({
+        isEnabled: false,
+        isPlaying: false,
+        family: Object.fromEntries((user.family ?? []).map((r: string) => [r, -1])),
+      }),
+    );
 
     const state: UserWorkflowState = {
       loggedOn: yield* _(Deferred.make<void>()),
-      isEnabled: yield* _(Ref.make(false)),
-      isPlaying,
-      familyState: yield* _(Ref.make(Object.fromEntries((user.family ?? []).map((r: string) => [r, -1])))),
+      state: stateRef,
       setGamesPlayed: (appIds: number[]) =>
         Effect.gen(function* (_) {
           const hasIds = appIds.length > 0;
-          const currentPlaying = yield* _(Ref.get(isPlaying));
+          const { isPlaying } = yield* _(Ref.get(stateRef));
 
-          if (!hasIds && !currentPlaying) return;
+          if (!hasIds && !isPlaying) return;
 
           yield* _(steamClient.setPersona(hasIds ? SteamUser.EPersonaState.Online : SteamUser.EPersonaState.Invisible));
           yield* _(steamClient.gamesPlayed(appIds));
-          yield* _(Ref.set(isPlaying, hasIds));
+          yield* _(Ref.update(stateRef, (s) => ({ ...s, isPlaying: hasIds })));
         }),
       reset: () =>
         Effect.gen(function* (_) {
-          yield* _(Ref.set(state.isEnabled, false));
+          yield* _(Ref.update(stateRef, (s) => ({ ...s, isEnabled: false })));
           yield* _(state.setGamesPlayed([]));
         }),
     };

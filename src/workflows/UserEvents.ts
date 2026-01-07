@@ -10,11 +10,15 @@ import { collectOwnGames } from '../helpers/OwnGameHelper';
 import { waitForConnection } from '../services/HttpService';
 import { SteamClient, SteamEvent } from '../services/SteamService';
 
+export interface InternalState {
+  readonly isEnabled: boolean;
+  readonly isPlaying: boolean;
+  readonly family: Record<string, number>;
+}
+
 export interface UserWorkflowState {
   readonly loggedOn: Deferred.Deferred<void>;
-  readonly isEnabled: Ref.Ref<boolean>;
-  readonly isPlaying: Ref.Ref<boolean>;
-  readonly familyState: Ref.Ref<Record<string, number>>;
+  readonly state: Ref.Ref<InternalState>;
   readonly setGamesPlayed: (appIds: number[]) => Effect.Effect<void>;
   readonly reset: () => Effect.Effect<void>;
 }
@@ -152,7 +156,7 @@ export const handleUserUpdate = (
   state: UserWorkflowState,
 ) =>
   Effect.gen(function* (_) {
-    const family = yield* _(Ref.get(state.familyState));
+    const { family, isEnabled } = yield* _(Ref.get(state.state));
     const userId = event.steamId.toString();
     const steamId = yield* _(steamClient.steamID);
     const selfId = steamId!.toString();
@@ -170,13 +174,13 @@ export const handleUserUpdate = (
     const isUserOffline = USER_OFFLINE_STATE.includes(userPersona);
 
     // Update family state tracking
-    yield* _(Ref.update(state.familyState, (f) => ({ ...f, [userId]: userPersona })));
+    yield* _(Ref.update(state.state, (s) => ({ ...s, family: { ...s.family, [userId]: userPersona } })));
 
     if (isUserOffline) return;
 
     // If a family member is online, disable idling
-    if (yield* _(Ref.get(state.isEnabled))) {
-      yield* _(Ref.set(state.isEnabled, false));
+    if (isEnabled) {
+      yield* _(Ref.update(state.state, (s) => ({ ...s, isEnabled: false })));
       yield* _(state.setGamesPlayed([]));
 
       const playerName = event.user.player_name || 'FamilyMember';
