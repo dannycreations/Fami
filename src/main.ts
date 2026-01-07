@@ -1,21 +1,17 @@
 import 'dotenv/config';
 
 import { join } from 'node:path';
-import { chalk } from '@vegapunk/utilities';
-import { Data, Effect, Fiber } from 'effect';
+import { Effect, Fiber } from 'effect';
 
-import { ConfigContext, INITIAL_CONFIG, RegistrationSemaphore } from './core/schemas';
-import { HttpServiceLive } from './services/HttpService';
-import { LoggerServiceLive } from './services/LoggerService';
-import { runWithRestart } from './services/RuntimeService';
-import { makeStore } from './services/StoreService';
+import { ConfigContext, ConfigStore, INITIAL_CONFIG, RegistrationSemaphore } from './core/schemas';
+import { HttpService } from './services/HttpService';
+import { LoggerService } from './services/LoggerService';
+import { runMidnightRestart, runWithRestart } from './services/RuntimeService';
+import { StoreService } from './services/StoreService';
 import { runUserWorkflow } from './workflows/UserWorkflow';
 
-class RestartRequested extends Data.TaggedError('RestartRequested') {}
-
 const program = Effect.gen(function* (_) {
-  const configPath = join(process.cwd(), 'sessions', 'settings.json');
-  const configStore = yield* _(makeStore(configPath, ConfigContext, INITIAL_CONFIG, 60_000));
+  const configStore = yield* _(ConfigStore);
 
   const config = yield* _(configStore.get);
 
@@ -28,24 +24,14 @@ const program = Effect.gen(function* (_) {
 
   const registrationSemaphore = yield* _(Effect.makeSemaphore(1));
 
-  const midnightCheck = Effect.gen(function* (_) {
-    const now = new Date();
-    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const msUntilMidnight = tomorrow.getTime() - now.getTime();
-
-    yield* _(Effect.sleep(`${msUntilMidnight} millis`));
-    yield* _(Effect.logInfo(chalk`{bold.yellow It's midnight time. Restarting app...}`));
-    return yield* _(Effect.fail(new RestartRequested()));
-  });
-
   yield* _(
     Effect.all(
       [
         Effect.all(
-          config.users.map((user) => runUserWorkflow(user, configStore).pipe(Effect.provideService(RegistrationSemaphore, registrationSemaphore))),
+          config.users.map((user) => runUserWorkflow(user).pipe(Effect.provideService(RegistrationSemaphore, registrationSemaphore))),
           { concurrency: 'unbounded' },
         ),
-        midnightCheck,
+        runMidnightRestart,
       ],
       { concurrency: 'unbounded' },
     ),
@@ -61,8 +47,15 @@ const programWithCatch = program.pipe(
   }),
 );
 
+const configPath = join(process.cwd(), 'sessions', 'settings.json');
+
 const fiber = Effect.runFork(
-  runWithRestart(programWithCatch).pipe(Effect.provide(LoggerServiceLive), Effect.provide(HttpServiceLive), Effect.scoped),
+  runWithRestart(programWithCatch).pipe(
+    Effect.provide(LoggerService),
+    Effect.provide(HttpService),
+    Effect.provide(StoreService(ConfigStore, configPath, ConfigContext, INITIAL_CONFIG, 60_000)),
+    Effect.scoped,
+  ),
 );
 
 process.on('SIGINT', () => {

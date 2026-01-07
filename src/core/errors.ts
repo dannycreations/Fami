@@ -11,8 +11,6 @@ export class FreeGameError extends Data.TaggedError('FreeGameError')<BaseErrorIn
 
 export class SteamError extends Data.TaggedError('SteamError')<BaseErrorInfo & { readonly eresult?: number }> {}
 
-export class StoreError extends Data.TaggedError('StoreError')<BaseErrorInfo> {}
-
 export class AuthError extends Data.TaggedError('AuthError')<BaseErrorInfo> {}
 
 export const catchAndLogUnlessTimeout =

@@ -3,16 +3,16 @@ import { humanizeDuration } from '@vegapunk/utilities/time';
 import { Effect, Random } from 'effect';
 import SteamUser from 'steam-user';
 
-import { SessionContext } from '../core/schemas';
-import { SteamClient } from './SteamService';
-import { Store } from './StoreService';
+import { SessionStore } from '../core/schemas';
+import { SteamClient } from '../services/SteamService';
 
 const MAX_IDLE_GAMES = 32;
 
-export const startIdleGames = (store: Store<SessionContext>, username: string) =>
+export const startIdleGames = (username: string) =>
   Effect.gen(function* (_) {
     const steamClient = yield* _(SteamClient);
-    const sessionData = yield* _(store.get);
+    const sessionStore = yield* _(SessionStore);
+    const sessionData = yield* _(sessionStore.get);
 
     const idleMs = (yield* _(Random.nextIntBetween(60, 180))) * 60_000;
     const nextIdleAt = Date.now() + idleMs;

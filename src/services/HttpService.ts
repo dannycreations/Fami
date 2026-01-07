@@ -45,7 +45,7 @@ export interface HttpService {
 
 const gotInstance: Got = got.bind(got);
 const userAgent = new UserAgent({ deviceCategory: 'desktop' });
-const HttpService = Context.GenericTag<HttpService>('@services/HttpService');
+const HttpClient = Context.GenericTag<HttpService>('@services/HttpClient');
 
 const requestImpl = <T = string>(options: string | DefaultOptions): Effect.Effect<Response<T>, HttpRequestError> => {
   const payload = defaultsDeep(
@@ -156,13 +156,13 @@ const waitForConnectionImpl = (retryMs: number = 10_000): Effect.Effect<void, Ht
   return Effect.race(checkGoogle, checkApple).pipe(Effect.retry(Schedule.spaced(`${retryMs} millis`)), Effect.asVoid);
 };
 
-export const request = <T = string>(options: string | DefaultOptions) => Effect.flatMap(HttpService, (service) => service.request<T>(options));
+export const request = <T = string>(options: string | DefaultOptions) => Effect.flatMap(HttpClient, (service) => service.request<T>(options));
 
-export const waitForConnection = (total?: number) => Effect.flatMap(HttpService, (service) => service.waitForConnection(total));
+export const waitForConnection = (total?: number) => Effect.flatMap(HttpClient, (service) => service.waitForConnection(total));
 
-export const HttpServiceLive = Layer.succeed(
-  HttpService,
-  HttpService.of({
+export const HttpService = Layer.succeed(
+  HttpClient,
+  HttpClient.of({
     request: requestImpl,
     waitForConnection: waitForConnectionImpl,
   }),

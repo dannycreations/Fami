@@ -5,11 +5,10 @@ import SteamTotp from 'steam-totp';
 import SteamUser from 'steam-user';
 
 import { DEFAULT_SLEEP_DURATION, RATE_LIMIT_MIN_MS, USER_OFFLINE_STATE } from '../core/constants';
-import { ConfigContext, SessionContext, UserContext } from '../core/schemas';
+import { ConfigStore, SessionStore, UserContext } from '../core/schemas';
+import { collectOwnGames } from '../helpers/OwnGameHelper';
 import { waitForConnection } from '../services/HttpService';
-import { collectOwnGames } from '../services/OwnGameService';
 import { SteamClient, SteamEvent } from '../services/SteamService';
-import { Store } from '../services/StoreService';
 
 export interface UserWorkflowState {
   readonly loggedOn: Deferred.Deferred<void>;
@@ -20,14 +19,11 @@ export interface UserWorkflowState {
   readonly reset: () => Effect.Effect<void>;
 }
 
-export const handleLoggedOn = (
-  user: UserContext,
-  steamClient: SteamClient,
-  configStore: Store<ConfigContext>,
-  sessionStore: Store<SessionContext>,
-  state: UserWorkflowState,
-) =>
+export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
   Effect.gen(function* (_) {
+    const configStore = yield* _(ConfigStore);
+    const sessionStore = yield* _(SessionStore);
+
     const steamId = yield* _(steamClient.steamID);
     const steamIdString = steamId!.toString();
     yield* _(Effect.logInfo(chalk`{bold.yellow ${user.username} logged on!}`));
@@ -43,7 +39,7 @@ export const handleLoggedOn = (
     const config = yield* _(configStore.get);
     yield* _(sessionStore.setDelay(config.refreshGames));
 
-    yield* _(collectOwnGames(user, configStore, sessionStore));
+    yield* _(collectOwnGames(user));
     const sessionData = yield* _(sessionStore.get);
     yield* _(Effect.logInfo(`${user.username} owns ${sessionData.ownedGameList.length} games`));
     yield* _(Deferred.succeed(state.loggedOn, undefined));
@@ -75,8 +71,9 @@ export const handleSteamGuard = (user: UserContext, event: Extract<SteamEvent, {
     }
   });
 
-const handleRateLimit = (user: UserContext, configStore: Store<ConfigContext>) =>
+const handleRateLimit = (user: UserContext) =>
   Effect.gen(function* (_) {
+    const configStore = yield* _(ConfigStore);
     const cfg = yield* _(configStore.get);
     const sleepMs = Math.max(cfg.refreshGames, RATE_LIMIT_MIN_MS);
     yield* _(Effect.logWarning(`${user.username} Rate Limit Exceeded. Sleeping for ${sleepMs / 60000}m...`));
@@ -89,8 +86,9 @@ const handleLoggedInElsewhere = (user: UserContext) =>
     yield* _(Effect.sleep('10 minutes'));
   });
 
-const handleInvalidCredentials = (user: UserContext, configStore: Store<ConfigContext>) =>
+const handleInvalidCredentials = (user: UserContext) =>
   Effect.gen(function* (_) {
+    const configStore = yield* _(ConfigStore);
     yield* _(Effect.logError(`${user.username} Invalid credentials/token. Clearing refresh token.`));
     yield* _(
       configStore.update((cfg) => ({
@@ -100,14 +98,14 @@ const handleInvalidCredentials = (user: UserContext, configStore: Store<ConfigCo
     );
   });
 
-export const handleError = (user: UserContext, error: Error & { eresult?: number }, configStore: Store<ConfigContext>, state: UserWorkflowState) =>
+export const handleError = (user: UserContext, error: Error & { eresult?: number }, state: UserWorkflowState) =>
   Effect.gen(function* (_) {
     yield* _(state.reset());
     yield* _(Effect.logError(chalk`{red ${user.username} disconnected}`, error));
 
     switch (error.eresult) {
       case SteamUser.EResult.RateLimitExceeded:
-        yield* _(handleRateLimit(user, configStore));
+        yield* _(handleRateLimit(user));
         break;
       case SteamUser.EResult.LoggedInElsewhere:
       case SteamUser.EResult.LogonSessionReplaced:
@@ -116,7 +114,7 @@ export const handleError = (user: UserContext, error: Error & { eresult?: number
         break;
       case SteamUser.EResult.AccessDenied:
       case SteamUser.EResult.InvalidPassword:
-        yield* _(handleInvalidCredentials(user, configStore));
+        yield* _(handleInvalidCredentials(user));
         break;
       case SteamUser.EResult.NoConnection:
       case SteamUser.EResult.ServiceUnavailable:
@@ -128,13 +126,11 @@ export const handleError = (user: UserContext, error: Error & { eresult?: number
     yield* _(Effect.fail(error));
   });
 
-export const handleVacBans = (
-  user: UserContext,
-  event: Extract<SteamEvent, { type: 'vacBans' }>,
-  configStore: Store<ConfigContext>,
-  sessionStore: Store<SessionContext>,
-) =>
+export const handleVacBans = (user: UserContext, event: Extract<SteamEvent, { type: 'vacBans' }>) =>
   Effect.gen(function* (_) {
+    const configStore = yield* _(ConfigStore);
+    const sessionStore = yield* _(SessionStore);
+
     if (event.numBans > 0) {
       yield* _(Effect.logInfo(chalk`{bold.red ${user.username} has ${event.numBans} VAC ban(s)}`));
       yield* _(Effect.logInfo(`- ${event.appids.join(', ').trim()}`));
@@ -188,18 +184,13 @@ export const handleUserUpdate = (
     }
   });
 
-export const handleSteamEvent = (
-  event: SteamEvent,
-  user: UserContext,
-  steamClient: SteamClient,
-  configStore: Store<ConfigContext>,
-  sessionStore: Store<SessionContext>,
-  state: UserWorkflowState,
-) =>
+export const handleSteamEvent = (event: SteamEvent, user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
   Effect.gen(function* (_) {
+    const configStore = yield* _(ConfigStore);
+
     switch (event.type) {
       case 'loggedOn':
-        return yield* _(handleLoggedOn(user, steamClient, configStore, sessionStore, state));
+        return yield* _(handleLoggedOn(user, steamClient, state));
       case 'refreshToken':
         return yield* _(
           configStore.update((cfg) => ({
@@ -210,9 +201,9 @@ export const handleSteamEvent = (
       case 'steamGuard':
         return yield* _(handleSteamGuard(user, event));
       case 'error':
-        return yield* _(handleError(user, event.error, configStore, state));
+        return yield* _(handleError(user, event.error, state));
       case 'vacBans':
-        return yield* _(handleVacBans(user, event, configStore, sessionStore));
+        return yield* _(handleVacBans(user, event));
       case 'user':
         return yield* _(handleUserUpdate(user, event, steamClient, state));
     }

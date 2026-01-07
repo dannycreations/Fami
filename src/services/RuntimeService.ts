@@ -1,5 +1,7 @@
 import { chalk } from '@vegapunk/utilities';
-import { Effect, Schedule } from 'effect';
+import { Data, Effect, Schedule } from 'effect';
+
+class RestartRequested extends Data.TaggedError('RestartRequested') {}
 
 export interface RuntimeOptions {
   readonly maxRestarts?: number;
@@ -39,3 +41,13 @@ export const runWithRestart = <A, E, R>(program: Effect.Effect<A, E, R>, options
 
   return Effect.repeat(loop, Schedule.forever);
 };
+
+export const runMidnightRestart = Effect.gen(function* (_) {
+  const now = new Date();
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const msUntilMidnight = tomorrow.getTime() - now.getTime();
+
+  yield* _(Effect.sleep(`${msUntilMidnight} millis`));
+  yield* _(Effect.logInfo(chalk`{bold.yellow It's midnight time. Restarting app...}`));
+  return yield* _(Effect.fail(new RestartRequested()));
+});

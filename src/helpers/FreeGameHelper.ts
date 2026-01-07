@@ -3,13 +3,10 @@ import SteamUser from 'steam-user';
 
 import { RATE_LIMIT_MIN_MS } from '../core/constants';
 import { catchAndLogUnlessTimeout, FreeGameError } from '../core/errors';
-import { RegistrationSemaphore, SessionContext, UserContext } from '../core/schemas';
+import { ConfigStore, RegistrationSemaphore, SessionStore, UserContext } from '../core/schemas';
 import { filterGames, parseAppIdsFromHtml } from '../core/utils';
-import { request } from './HttpService';
-import { SteamClient, SteamRetryPolicy } from './SteamService';
-import { Store } from './StoreService';
-
-import type { ConfigContext } from '../core/schemas';
+import { request } from '../services/HttpService';
+import { SteamClient, SteamRetryPolicy } from '../services/SteamService';
 
 const MAX_FREE_GAMES_BATCH = 50;
 
@@ -30,8 +27,10 @@ const fetchSearchPage = (page: number) =>
     Effect.retry(SteamRetryPolicy),
   );
 
-export const collectFreeGames = (user: UserContext, configStore: Store<ConfigContext>, sessionStore: Store<SessionContext>) =>
+export const collectFreeGames = (user: UserContext) =>
   Effect.gen(function* (_) {
+    const configStore = yield* _(ConfigStore);
+    const sessionStore = yield* _(SessionStore);
     const configData = yield* _(configStore.get);
 
     if (!configData.fetchFreeGames && !user.fetchFreeGames) {
@@ -101,12 +100,15 @@ export const collectFreeGames = (user: UserContext, configStore: Store<ConfigCon
     }
 
     const semaphore = yield* _(RegistrationSemaphore);
-    yield* _(semaphore.withPermits(1)(registerFreeGames(user, configStore, sessionStore)));
+    yield* _(semaphore.withPermits(1)(registerFreeGames(user)));
   });
 
-export const registerFreeGames = (user: UserContext, configStore: Store<ConfigContext>, sessionStore: Store<SessionContext>) =>
+export const registerFreeGames = (user: UserContext) =>
   Effect.gen(function* (_) {
     const steamClient = yield* _(SteamClient);
+    const configStore = yield* _(ConfigStore);
+    const sessionStore = yield* _(SessionStore);
+
     const configData = yield* _(configStore.get);
     const sessionData = yield* _(sessionStore.get);
 

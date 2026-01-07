@@ -4,13 +4,13 @@ import { Deferred, Effect, Ref, Schedule, Stream } from 'effect';
 import SteamUser from 'steam-user';
 
 import { AuthError } from '../core/errors';
-import { ConfigContext, INITIAL_SESSION, SessionContext, UserContext } from '../core/schemas';
-import { collectFreeGames } from '../services/FreeGameService';
+import { ConfigStore, INITIAL_SESSION, SessionContext, SessionStore, UserContext } from '../core/schemas';
+import { collectFreeGames } from '../helpers/FreeGameHelper';
+import { startIdleGames } from '../helpers/IdleHelper';
+import { collectOwnGames } from '../helpers/OwnGameHelper';
 import { waitForConnection } from '../services/HttpService';
-import { startIdleGames } from '../services/IdleService';
-import { collectOwnGames } from '../services/OwnGameService';
-import { SteamClient, SteamClientLive } from '../services/SteamService';
-import { makeStore, Store } from '../services/StoreService';
+import { SteamClient, SteamService } from '../services/SteamService';
+import { StoreService } from '../services/StoreService';
 import { handleSteamEvent, UserWorkflowState } from './UserEvents';
 
 const whenLoggedOn = (state: UserWorkflowState) => {
@@ -34,20 +34,21 @@ const runLogin = (user: UserContext, steamClient: SteamClient) =>
     yield* _(steamClient.logOn(loginDetails));
   });
 
-const runCollectLoops = (user: UserContext, configStore: Store<ConfigContext>, sessionStore: Store<SessionContext>, state: UserWorkflowState) => {
+const runCollectLoops = (user: UserContext, state: UserWorkflowState) => {
   const checkLoggedOn = whenLoggedOn(state);
 
   const ownGamesLoop = checkLoggedOn(
     Effect.gen(function* (_) {
+      const configStore = yield* _(ConfigStore);
       const config = yield* _(configStore.get);
-      yield* _(collectOwnGames(user, configStore, sessionStore));
+      yield* _(collectOwnGames(user));
       yield* _(Effect.sleep(`${config.refreshGames} millis`));
     }),
   ).pipe(Effect.repeat(Schedule.forever));
 
   const freeGamesLoop = checkLoggedOn(
     Effect.gen(function* (_) {
-      yield* _(collectFreeGames(user, configStore, sessionStore));
+      yield* _(collectFreeGames(user));
       yield* _(Effect.sleep('1 minute'));
     }),
   ).pipe(Effect.repeat(Schedule.forever));
@@ -55,7 +56,7 @@ const runCollectLoops = (user: UserContext, configStore: Store<ConfigContext>, s
   return Effect.all([ownGamesLoop, freeGamesLoop], { concurrency: 'unbounded' });
 };
 
-const runPresenceAndIdle = (user: UserContext, steamClient: SteamClient, sessionStore: Store<SessionContext>, state: UserWorkflowState) =>
+const runPresenceAndIdle = (user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
   Effect.gen(function* (_) {
     const checkLoggedOn = whenLoggedOn(state);
     const nextIdleTimeRef = yield* _(Ref.make(0));
@@ -79,7 +80,7 @@ const runPresenceAndIdle = (user: UserContext, steamClient: SteamClient, session
 
         if (yield* _(Ref.get(state.isEnabled))) {
           if (Date.now() > (yield* _(Ref.get(nextIdleTimeRef)))) {
-            const nextTime = yield* _(startIdleGames(sessionStore, user.username));
+            const nextTime = yield* _(startIdleGames(user.username));
             yield* _(Ref.set(nextIdleTimeRef, nextTime));
             yield* _(Ref.set(state.isPlaying, true));
           }
@@ -96,11 +97,9 @@ const runPresenceAndIdle = (user: UserContext, steamClient: SteamClient, session
     return yield* _(idleLoop);
   });
 
-const makeUserSession = (user: UserContext, configStore: Store<ConfigContext>) =>
+const makeUserSession = (user: UserContext) =>
   Effect.gen(function* (_) {
     const steamClient = yield* _(SteamClient);
-    const sessionDir = join(process.cwd(), 'sessions', user.username);
-    const sessionStore = yield* _(makeStore(join(sessionDir, 'session.json'), SessionContext, INITIAL_SESSION, 600_000));
 
     const isPlaying = yield* _(Ref.make(false));
 
@@ -127,16 +126,14 @@ const makeUserSession = (user: UserContext, configStore: Store<ConfigContext>) =
         }),
     };
 
-    const handleEvents = steamClient.events.pipe(
-      Stream.runForEach((event) => handleSteamEvent(event, user, steamClient, configStore, sessionStore, state)),
-    );
+    const handleEvents = steamClient.events.pipe(Stream.runForEach((event) => handleSteamEvent(event, user, steamClient, state)));
 
     yield* _(
       Effect.all(
         [
           handleEvents,
-          runCollectLoops(user, configStore, sessionStore, state),
-          runPresenceAndIdle(user, steamClient, sessionStore, state),
+          runCollectLoops(user, state),
+          runPresenceAndIdle(user, steamClient, state),
           runLogin(user, steamClient).pipe(Effect.andThen(Effect.never)),
         ],
         { concurrency: 'unbounded' },
@@ -144,12 +141,15 @@ const makeUserSession = (user: UserContext, configStore: Store<ConfigContext>) =
     );
   });
 
-export const runUserWorkflow = (user: UserContext, configStore: Store<ConfigContext>) =>
+export const runUserWorkflow = (user: UserContext) =>
   Effect.gen(function* (_) {
     const sessionDir = join(process.cwd(), 'sessions', user.username);
+    const SessionStoreLive = StoreService(SessionStore, join(sessionDir, 'session.json'), SessionContext, INITIAL_SESSION, 600_000);
+
     yield* _(
-      makeUserSession(user, configStore).pipe(
-        Effect.provide(SteamClientLive(sessionDir)),
+      makeUserSession(user).pipe(
+        Effect.provide(SteamService(sessionDir)),
+        Effect.provide(SessionStoreLive),
         Effect.scoped,
         Effect.retry(
           Schedule.spaced('10 seconds').pipe(Schedule.tapInput(() => Effect.logInfo(chalk`{yellow Retrying workflow for ${user.username}...}`))),

@@ -140,4 +140,4 @@ const defaultLogger = createLogger({
   rejection: false,
 });
 
-export const LoggerServiceLive = createEffectLogger(Logger.defaultLogger, defaultLogger);
+export const LoggerService = createEffectLogger(Logger.defaultLogger, defaultLogger);

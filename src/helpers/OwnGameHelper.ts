@@ -3,16 +3,16 @@ import { Effect } from 'effect';
 import SteamUser from 'steam-user';
 
 import { catchAndLogUnlessTimeout } from '../core/errors';
-import { SessionContext, UserContext } from '../core/schemas';
+import { ConfigStore, SessionStore, UserContext } from '../core/schemas';
 import { filterGames } from '../core/utils';
-import { SteamClient, SteamRetryPolicy } from './SteamService';
-import { Store } from './StoreService';
+import { SteamClient, SteamRetryPolicy } from '../services/SteamService';
 
-import type { ConfigContext } from '../core/schemas';
-
-export const collectOwnGames = (user: UserContext, configStore: Store<ConfigContext>, sessionStore: Store<SessionContext>) =>
+export const collectOwnGames = (user: UserContext) =>
   Effect.gen(function* (_) {
     const steamClient = yield* _(SteamClient);
+    const configStore = yield* _(ConfigStore);
+    const sessionStore = yield* _(SessionStore);
+
     const steamId = yield* _(steamClient.steamID);
     if (!steamId) return;
 

@@ -40,8 +40,6 @@ export interface SteamClient {
   readonly requestFreeLicense: (appIDs: number[]) => Effect.Effect<void, SteamError>;
 }
 
-export const SteamClient = Context.GenericTag<SteamClient>('@services/SteamClient');
-
 const createEventStream = (user: SteamUser, community: SteamCommunity) =>
   Stream.async<SteamEvent>((emit) => {
     const handlers: Record<string, (...args: any[]) => void> = {
@@ -75,7 +73,7 @@ const createEventStream = (user: SteamUser, community: SteamCommunity) =>
     Stream.tapError((error) => Effect.logError('Steam event stream error', error)),
   );
 
-export const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, never, Scope.Scope> => {
+const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, never, Scope.Scope> => {
   return Effect.gen(function* (_) {
     const user = new SteamUser({ dataDirectory, renewRefreshTokens: true, autoRelogin: false });
     const community = new SteamCommunity({ timeout: 10_000 });
@@ -167,4 +165,6 @@ export const makeSteamClient = (dataDirectory: string): Effect.Effect<SteamClien
   });
 };
 
-export const SteamClientLive = (dataDirectory: string) => Layer.scoped(SteamClient, makeSteamClient(dataDirectory));
+export const SteamClient = Context.GenericTag<SteamClient>('@services/SteamClient');
+
+export const SteamService = (dataDirectory: string) => Layer.scoped(SteamClient, makeSteamClient(dataDirectory));
