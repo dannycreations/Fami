@@ -17,7 +17,7 @@ const whenLoggedOn = (state: UserWorkflowState) => {
   return <A, E, R>(effect: Effect.Effect<A, E, R>) => Deferred.await(state.loggedOn).pipe(Effect.zipRight(effect));
 };
 
-const skdCollector = (user: UserContext, state: UserWorkflowState) => {
+const cycleCollector = (user: UserContext, state: UserWorkflowState) => {
   const checkLoggedOn = whenLoggedOn(state);
 
   const ownGamesLoop = checkLoggedOn(
@@ -39,7 +39,7 @@ const skdCollector = (user: UserContext, state: UserWorkflowState) => {
   return Effect.all([ownGamesLoop, freeGamesLoop], { concurrency: 'unbounded' });
 };
 
-const skdIdler = (user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
+const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
   Effect.gen(function* (_) {
     const checkLoggedOn = whenLoggedOn(state);
     const nextIdleTimeRef = yield* _(Ref.make(0));
@@ -135,7 +135,12 @@ const createUserSession = (user: UserContext) =>
 
     yield* _(
       Effect.all(
-        [handleEvents, skdCollector(user, state), skdIdler(user, steamClient, state), tryLogin(user, steamClient).pipe(Effect.andThen(Effect.never))],
+        [
+          handleEvents,
+          cycleCollector(user, state),
+          cycleIdler(user, steamClient, state),
+          tryLogin(user, steamClient).pipe(Effect.andThen(Effect.never)),
+        ],
         { concurrency: 'unbounded' },
       ),
     );
