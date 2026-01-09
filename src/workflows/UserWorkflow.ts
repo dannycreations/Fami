@@ -11,7 +11,7 @@ import { collectOwnGames } from '../helpers/OwnGameHelper';
 import { waitForConnection } from '../services/HttpService';
 import { SteamClient, SteamService } from '../services/SteamService';
 import { StoreService } from '../services/StoreService';
-import { handleSteamEvent, UserWorkflowState } from './UserEvents';
+import { handleSteamEvent, USER_OFFLINE_STATE, UserWorkflowState } from './UserEvents';
 
 const whenLoggedOn = (state: UserWorkflowState) => {
   return <A, E, R>(effect: Effect.Effect<A, E, R>) => Deferred.await(state.loggedOn).pipe(Effect.zipRight(effect));
@@ -47,7 +47,8 @@ const skdIdler = (user: UserContext, steamClient: SteamClient, state: UserWorkfl
     const idleLoop = checkLoggedOn(
       Effect.gen(function* (_) {
         const { isPlaying, family } = yield* _(Ref.get(state.state));
-        const hasFamilyOnline = Object.values(family).some((s) => s > 0);
+        // Treat -1 (unknown) as online to prevent race conditions during startup
+        const hasFamilyOnline = Object.values(family).some((s) => !USER_OFFLINE_STATE.includes(s));
 
         if (hasFamilyOnline) {
           yield* _(Ref.update(state.state, (s) => ({ ...s, isEnabled: false })));

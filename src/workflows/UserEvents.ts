@@ -178,9 +178,7 @@ export const handleUserUpdate = (
 
     yield* _(Ref.update(state.state, (s) => ({ ...s, family: { ...s.family, [userId]: userPersona } })));
 
-    if (isUserOffline) return;
-
-    if (isEnabled) {
+    if (!isUserOffline && isEnabled) {
       yield* _(Ref.update(state.state, (s) => ({ ...s, isEnabled: false })));
       yield* _(state.setGamesPlayed([]));
 
