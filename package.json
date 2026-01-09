@@ -13,7 +13,7 @@
     "format": "prettier --write .",
     "clean": "rimraf -g \"*.tsbuildinfo\" \"dist\"",
     "clean:node": "rimraf -g \"*-lock*\" \"node_modules\"",
-    "update": "npm-check-updates -u -x @types/node",
+    "update": "npm-check-updates -u -x got,@types/node",
     "prepare": "husky"
   },
   "dependencies": {
