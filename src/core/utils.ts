@@ -1,7 +1,3 @@
-import { mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
-import { Effect } from 'effect';
-
 import { ConfigContext, GameContext, UserContext } from './schemas';
 
 export const RATE_LIMIT_MIN_MS = 1_800_000;
@@ -43,5 +39,3 @@ export const parseAppIdsFromHtml = (html: string): number[] => {
 };
 
 export const getRateLimitSleep = (refreshGames: number) => Math.max(refreshGames, RATE_LIMIT_MIN_MS);
-
-export const ensureDir = (path: string) => Effect.tryPromise(() => mkdir(dirname(path), { recursive: true }));

@@ -1,4 +1,6 @@
-import { Logger, LogLevel } from 'effect';
+import { join } from 'node:path';
+import { isErrorLike } from '@vegapunk/utilities/result';
+import { Cause, Logger, LogLevel } from 'effect';
 import pino from 'pino';
 import pinoPretty from 'pino-pretty';
 
@@ -17,6 +19,7 @@ export const LOG_LEVEL_MAP: ReadonlyRecord<LogLevel.LogLevel['_tag'], pino.Level
 };
 
 export interface LoggerOptions {
+  readonly dir?: string;
   readonly level?: Level;
   readonly trace?: boolean;
   readonly pretty?: boolean;
@@ -26,6 +29,7 @@ export interface LoggerOptions {
 
 export const createLogger = (options: LoggerOptions = {}): LoggerPino => {
   const {
+    dir = join(process.cwd(), 'logs'),
     level = process.env.NODE_ENV === 'development' ? 'debug' : 'info',
     trace = false,
     pretty = true,
@@ -38,7 +42,7 @@ export const createLogger = (options: LoggerOptions = {}): LoggerPino => {
       level: 'warn',
       stream: pino.destination({
         mkdir: true,
-        dest: `${process.cwd()}/logs/errors.log`,
+        dest: `${dir}/errors.log`,
       }),
     },
   ];
@@ -48,7 +52,7 @@ export const createLogger = (options: LoggerOptions = {}): LoggerPino => {
       level: 'trace',
       stream: pino.destination({
         mkdir: true,
-        dest: `${process.cwd()}/logs/traces.log`,
+        dest: `${dir}/traces.log`,
       }),
     });
   }
@@ -109,7 +113,7 @@ export const createLogger = (options: LoggerOptions = {}): LoggerPino => {
   return instance;
 };
 
-export const LoggerService = (self: Logger.Logger<unknown, void>, logger: pino.Logger) =>
+export const LoggerLayer = (self: Logger.Logger<unknown, void>, logger: pino.Logger) =>
   Logger.replace(
     self,
     Logger.make(({ logLevel, message, cause }) => {
@@ -117,7 +121,13 @@ export const LoggerService = (self: Logger.Logger<unknown, void>, logger: pino.L
       const payload = Array.isArray(message) ? [...message] : [message];
 
       if (cause && cause._tag !== 'Empty') {
-        payload.push({ cause });
+        const [failure] = Cause.failures(cause);
+        const causePretty = { cause: Cause.pretty(cause) };
+        if (isErrorLike<{ cause: unknown }>(failure) && failure.cause) {
+          payload.push(Object.assign(failure.cause, causePretty));
+        } else {
+          payload.push(causePretty);
+        }
       }
 
       (logger[level] as Function)(...payload);

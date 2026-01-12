@@ -4,10 +4,10 @@ import { join } from 'node:path';
 import { Effect, Logger } from 'effect';
 
 import { ConfigContext, ConfigStore, INITIAL_CONFIG, RegistrationSemaphore } from './core/schemas';
-import { HttpService } from './services/HttpService';
-import { createLogger, LoggerService } from './services/LoggerService';
+import { HttpLayer } from './services/HttpService';
+import { createLogger, LoggerLayer } from './services/LoggerService';
 import { cycleMidnightRestart, cycleWithRestart, runForkWithCleanUp } from './services/RuntimeService';
-import { StoreService } from './services/StoreService';
+import { StoreLayer } from './services/StoreService';
 import { runUserWorkflow } from './workflows/UserWorkflow';
 
 const program = Effect.gen(function* (_) {
@@ -33,9 +33,8 @@ const configPath = join(process.cwd(), 'sessions', 'settings.json');
 
 runForkWithCleanUp(
   cycleWithRestart(program).pipe(
-    Effect.provide(LoggerService(Logger.defaultLogger, logger)),
-    Effect.provide(StoreService(ConfigStore, configPath, ConfigContext, INITIAL_CONFIG, 60_000)),
-    Effect.provide(HttpService),
-    Effect.scoped,
+    Effect.provide(LoggerLayer(Logger.defaultLogger, logger)),
+    Effect.provide(StoreLayer(ConfigStore, configPath, ConfigContext, INITIAL_CONFIG, 60_000)),
+    Effect.provide(HttpLayer),
   ),
 );

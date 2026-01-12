@@ -9,8 +9,8 @@ import { collectFreeGames } from '../helpers/FreeGameHelper';
 import { startIdleGames } from '../helpers/IdleGameHelper';
 import { collectOwnGames } from '../helpers/OwnGameHelper';
 import { waitForConnection } from '../services/HttpService';
-import { SteamClient, SteamService } from '../services/SteamService';
-import { StoreService } from '../services/StoreService';
+import { SteamClient, SteamLayer } from '../services/SteamService';
+import { StoreLayer } from '../services/StoreService';
 import { handleSteamEvent, USER_OFFLINE_STATE, UserWorkflowState } from './UserEvents';
 
 const whenLoggedOn = (state: UserWorkflowState) => {
@@ -153,8 +153,8 @@ export const runUserWorkflow = (user: UserContext) =>
 
     yield* _(
       createUserSession(user).pipe(
-        Effect.provide(SteamService(sessionDir)),
-        Effect.provide(StoreService(SessionStore, sessionPath, SessionContext, INITIAL_SESSION, 600_000)),
+        Effect.provide(SteamLayer(sessionDir)),
+        Effect.provide(StoreLayer(SessionStore, sessionPath, SessionContext, INITIAL_SESSION, 600_000)),
         Effect.scoped,
         Effect.retry(
           Schedule.spaced('10 seconds').pipe(Schedule.tapInput(() => Effect.logInfo(chalk`{yellow Retrying workflow for ${user.username}...}`))),

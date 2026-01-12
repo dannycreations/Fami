@@ -180,6 +180,6 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, ne
   });
 };
 
-export const SteamClient = Context.GenericTag<SteamClient>('@services/SteamClient');
+export const SteamClient = Context.GenericTag<SteamClient>('@layer/SteamLayer');
 
-export const SteamService = (dataDirectory: string) => Layer.scoped(SteamClient, createSteamClient(dataDirectory));
+export const SteamLayer = (dataDirectory: string) => Layer.scoped(SteamClient, createSteamClient(dataDirectory));
