@@ -4,13 +4,13 @@ import { Deferred, Effect, Ref, Schedule, Stream } from 'effect';
 import SteamUser from 'steam-user';
 
 import { AuthError } from '../core/errors';
-import { ConfigStore, INITIAL_SESSION, SessionContext, SessionStore, UserContext } from '../core/schemas';
+import { ConfigStoreTag, INITIAL_SESSION, SessionContext, SessionStore, UserContext } from '../core/schemas';
 import { collectFreeGames } from '../helpers/FreeGameHelper';
 import { startIdleGames } from '../helpers/IdleGameHelper';
 import { collectOwnGames } from '../helpers/OwnGameHelper';
-import { waitForConnection } from '../services/HttpService';
-import { SteamClient, SteamLayer } from '../services/SteamService';
-import { StoreLayer } from '../services/StoreService';
+import { SteamClientLayer, SteamClientTag } from '../services/SteamService';
+import { waitForConnection } from '../structures/HttpClient';
+import { StoreClientLayer } from '../structures/StoreClient';
 import { handleSteamEvent, USER_OFFLINE_STATE, UserWorkflowState } from './UserEvents';
 
 const whenLoggedOn = (state: UserWorkflowState) => {
@@ -22,7 +22,7 @@ const cycleCollector = (user: UserContext, state: UserWorkflowState) => {
 
   const ownGamesLoop = checkLoggedOn(
     Effect.gen(function* (_) {
-      const configStore = yield* _(ConfigStore);
+      const configStore = yield* _(ConfigStoreTag);
       const config = yield* _(configStore.get);
       yield* _(collectOwnGames(user));
       yield* _(Effect.sleep(`${config.refreshGames} millis`));
@@ -39,7 +39,7 @@ const cycleCollector = (user: UserContext, state: UserWorkflowState) => {
   return Effect.all([ownGamesLoop, freeGamesLoop], { concurrency: 'unbounded' });
 };
 
-const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
+const cycleIdler = (user: UserContext, steamClient: SteamClientTag, state: UserWorkflowState) =>
   Effect.gen(function* (_) {
     const checkLoggedOn = whenLoggedOn(state);
     const nextIdleTimeRef = yield* _(Ref.make(0));
@@ -82,7 +82,7 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
     return yield* _(idleLoop);
   });
 
-const tryLogin = (user: UserContext, steamClient: SteamClient) =>
+const tryLogin = (user: UserContext, steamClient: SteamClientTag) =>
   Effect.gen(function* (_) {
     const loginDetails = user.refreshToken
       ? ({ refreshToken: user.refreshToken } satisfies SteamUser.LogOnDetailsRefresh)
@@ -101,7 +101,7 @@ const tryLogin = (user: UserContext, steamClient: SteamClient) =>
 
 const createUserSession = (user: UserContext) =>
   Effect.gen(function* (_) {
-    const steamClient = yield* _(SteamClient);
+    const steamClient = yield* _(SteamClientTag);
 
     const stateRef = yield* _(
       Ref.make({
@@ -153,8 +153,8 @@ export const runUserWorkflow = (user: UserContext) =>
 
     yield* _(
       createUserSession(user).pipe(
-        Effect.provide(SteamLayer(sessionDir)),
-        Effect.provide(StoreLayer(SessionStore, sessionPath, SessionContext, INITIAL_SESSION, 600_000)),
+        Effect.provide(SteamClientLayer(sessionDir)),
+        Effect.provide(StoreClientLayer(SessionStore, sessionPath, SessionContext, INITIAL_SESSION, 600_000)),
         Effect.scoped,
         Effect.retry(
           Schedule.spaced('10 seconds').pipe(Schedule.tapInput(() => Effect.logInfo(chalk`{yellow Retrying workflow for ${user.username}...}`))),

@@ -2,7 +2,7 @@ import { chalk } from '@vegapunk/utilities';
 import { isErrorLike } from '@vegapunk/utilities/result';
 import { Cause, Data, Effect, Fiber, Schedule, Scope } from 'effect';
 
-export class ScheduleRestart extends Data.TaggedError('ScheduleRestart') {}
+export class RuntimeRestart extends Data.TaggedError('RuntimeRestart') {}
 
 export interface RuntimeOptions {
   readonly maxRestarts?: number;
@@ -12,8 +12,16 @@ export interface RuntimeOptions {
 
 export const runForkWithCleanUp = <A, E, R>(effect: Effect.Effect<A, E, R>): void => {
   const fiber = Effect.runFork(effect as Effect.Effect<A, E>);
-  process.on('SIGINT', () => Effect.runPromise(Fiber.interrupt(fiber)).then(() => process.exit(0)));
-  process.on('SIGTERM', () => Effect.runPromise(Fiber.interrupt(fiber)).then(() => process.exit(0)));
+  process.on('SIGINT', () => {
+    Effect.runPromise(Fiber.interrupt(fiber))
+      .then(() => process.exit(0))
+      .catch(() => process.exit(1));
+  });
+  process.on('SIGTERM', () => {
+    Effect.runPromise(Fiber.interrupt(fiber))
+      .then(() => process.exit(0))
+      .catch(() => process.exit(1));
+  });
 };
 
 export const cycleWithRestart = <A, E, R>(
@@ -28,7 +36,7 @@ export const cycleWithRestart = <A, E, R>(
       const failures = Array.from(Cause.failures(cause));
 
       // Identification of scheduled restarts or transient network failures allows the system to bypass fatal crash thresholds and maintain availability.
-      if (failures.some((error) => isErrorLike<{ _tag: string }>(error) && error._tag === 'ScheduleRestart')) {
+      if (failures.some((error) => isErrorLike<{ _tag: string }>(error) && error._tag === 'RuntimeRestart')) {
         return;
       }
 
@@ -60,5 +68,5 @@ export const cycleMidnightRestart = Effect.gen(function* () {
 
   yield* Effect.sleep(`${msUntilMidnight} millis`);
   yield* Effect.logInfo(chalk`{bold.yellow It's midnight time. Restarting app...}`);
-  return yield* Effect.fail(new ScheduleRestart());
+  return yield* Effect.fail(new RuntimeRestart());
 });

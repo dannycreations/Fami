@@ -4,11 +4,11 @@ import { Deferred, Effect, Ref } from 'effect';
 import SteamTotp from 'steam-totp';
 import SteamUser from 'steam-user';
 
-import { ConfigStore, SessionStore, UserContext } from '../core/schemas';
+import { ConfigStoreTag, SessionStore, UserContext } from '../core/schemas';
 import { getRateLimitSleep } from '../core/utils';
 import { collectOwnGames } from '../helpers/OwnGameHelper';
-import { waitForConnection } from '../services/HttpService';
-import { SteamClient, SteamEvent } from '../services/SteamService';
+import { SteamClientTag, SteamEvent } from '../services/SteamService';
+import { waitForConnection } from '../structures/HttpClient';
 
 export const DEFAULT_SLEEP_DURATION = '10 seconds';
 export const USER_OFFLINE_STATE = [SteamUser.EPersonaState.Offline, SteamUser.EPersonaState.Invisible] as const;
@@ -26,9 +26,9 @@ export interface UserWorkflowState {
   readonly reset: () => Effect.Effect<void>;
 }
 
-export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
+export const handleLoggedOn = (user: UserContext, steamClient: SteamClientTag, state: UserWorkflowState) =>
   Effect.gen(function* (_) {
-    const configStore = yield* _(ConfigStore);
+    const configStore = yield* _(ConfigStoreTag);
     const sessionStore = yield* _(SessionStore);
 
     const steamId = yield* _(steamClient.steamID);
@@ -80,7 +80,7 @@ export const handleSteamGuard = (user: UserContext, event: Extract<SteamEvent, {
 
 const handleRateLimit = (user: UserContext) =>
   Effect.gen(function* (_) {
-    const configStore = yield* _(ConfigStore);
+    const configStore = yield* _(ConfigStoreTag);
     const cfg = yield* _(configStore.get);
     const sleepMs = getRateLimitSleep(cfg.refreshGames);
     yield* _(Effect.logWarning(`${user.username} Rate Limit Exceeded. Sleeping for ${sleepMs / 60000}m...`));
@@ -95,7 +95,7 @@ const handleLoggedInElsewhere = (user: UserContext) =>
 
 const handleInvalidCredentials = (user: UserContext) =>
   Effect.gen(function* (_) {
-    const configStore = yield* _(ConfigStore);
+    const configStore = yield* _(ConfigStoreTag);
     yield* _(Effect.logError(`${user.username} Invalid credentials/token. Clearing refresh token.`));
     yield* _(
       configStore.update((cfg) => ({
@@ -135,7 +135,7 @@ export const handleError = (user: UserContext, error: Error & { eresult?: number
 
 export const handleVacBans = (user: UserContext, event: Extract<SteamEvent, { type: 'vacBans' }>) =>
   Effect.gen(function* (_) {
-    const configStore = yield* _(ConfigStore);
+    const configStore = yield* _(ConfigStoreTag);
     const sessionStore = yield* _(SessionStore);
 
     if (event.numBans > 0) {
@@ -155,7 +155,7 @@ export const handleVacBans = (user: UserContext, event: Extract<SteamEvent, { ty
 export const handleUserUpdate = (
   user: UserContext,
   event: Extract<SteamEvent, { type: 'user' }>,
-  steamClient: SteamClient,
+  steamClient: SteamClientTag,
   state: UserWorkflowState,
 ) =>
   Effect.gen(function* (_) {
@@ -187,9 +187,9 @@ export const handleUserUpdate = (
     }
   });
 
-export const handleSteamEvent = (event: SteamEvent, user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
+export const handleSteamEvent = (event: SteamEvent, user: UserContext, steamClient: SteamClientTag, state: UserWorkflowState) =>
   Effect.gen(function* (_) {
-    const configStore = yield* _(ConfigStore);
+    const configStore = yield* _(ConfigStoreTag);
 
     const handlers: { [K in SteamEvent['type']]: (event: Extract<SteamEvent, { type: K }>) => unknown } = {
       loggedOn: () => handleLoggedOn(user, steamClient, state),

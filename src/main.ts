@@ -3,15 +3,15 @@ import 'dotenv/config';
 import { join } from 'node:path';
 import { Effect, Logger } from 'effect';
 
-import { ConfigContext, ConfigStore, INITIAL_CONFIG, RegistrationSemaphore } from './core/schemas';
-import { HttpLayer } from './services/HttpService';
-import { createLogger, LoggerLayer } from './services/LoggerService';
-import { cycleMidnightRestart, cycleWithRestart, runForkWithCleanUp } from './services/RuntimeService';
-import { StoreLayer } from './services/StoreService';
+import { ConfigContext, ConfigStoreTag, INITIAL_CONFIG, RegistrationSemaphore } from './core/schemas';
+import { HttpClientLayer } from './structures/HttpClient';
+import { createLogger, LoggerClientLayer } from './structures/LoggerClient';
+import { cycleMidnightRestart, cycleWithRestart, runForkWithCleanUp } from './structures/RuntimeClient';
+import { StoreClientLayer } from './structures/StoreClient';
 import { runUserWorkflow } from './workflows/UserWorkflow';
 
 const program = Effect.gen(function* (_) {
-  const configStore = yield* _(ConfigStore);
+  const configStore = yield* _(ConfigStoreTag);
 
   const config = yield* _(configStore.get);
 
@@ -33,8 +33,8 @@ const configPath = join(process.cwd(), 'sessions', 'settings.json');
 
 runForkWithCleanUp(
   cycleWithRestart(program).pipe(
-    Effect.provide(LoggerLayer(Logger.defaultLogger, logger)),
-    Effect.provide(StoreLayer(ConfigStore, configPath, ConfigContext, INITIAL_CONFIG, 60_000)),
-    Effect.provide(HttpLayer),
+    Effect.provide(LoggerClientLayer(Logger.defaultLogger, logger)),
+    Effect.provide(StoreClientLayer(ConfigStoreTag, configPath, ConfigContext, INITIAL_CONFIG, 60_000)),
+    Effect.provide(HttpClientLayer),
   ),
 );

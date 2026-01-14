@@ -7,7 +7,7 @@ import UserAgent from 'user-agents';
 
 import type { CancelableRequest, Got, Options, RequestError, Response } from 'got';
 
-export class HttpRequestError extends Data.TaggedError('HttpRequestError')<{
+export class HttpClientError extends Data.TaggedError('HttpClientError')<{
   readonly message: string;
   readonly code?: string;
   readonly status?: number;
@@ -39,12 +39,12 @@ export interface DefaultOptions extends Omit<Options, 'prefixUrl' | 'retry' | 't
   }>;
 }
 
-export interface HttpLayer {
-  readonly request: <T = string>(options: string | DefaultOptions) => Effect.Effect<Response<T>, HttpRequestError>;
-  readonly waitForConnection: (total?: number) => Effect.Effect<void, HttpRequestError>;
+export interface HttpClientLayer {
+  readonly request: <T = string>(options: string | DefaultOptions) => Effect.Effect<Response<T>, HttpClientError>;
+  readonly waitForConnection: (total?: number) => Effect.Effect<void, HttpClientError>;
 }
 
-export const HttpTag = Context.GenericTag<HttpLayer>('@layer/HttpLayer');
+export class HttpClientTag extends Context.Tag('@structures/HttpClient')<HttpClientTag, HttpClientLayer>() {}
 
 const gotInstance: Got = got.bind(got);
 const userAgent = new UserAgent({ deviceCategory: 'desktop' });
@@ -52,7 +52,7 @@ const userAgent = new UserAgent({ deviceCategory: 'desktop' });
 export const isErrorTimeout = (error: unknown): boolean =>
   isErrorLike<{ _tag: string }>(error) && (error._tag === 'TimeoutException' || error.code === 'ETIMEDOUT');
 
-const requestFn = <T = string>(options: string | DefaultOptions): Effect.Effect<Response<T>, HttpRequestError> => {
+const requestFn = <T = string>(options: string | DefaultOptions): Effect.Effect<Response<T>, HttpClientError> => {
   const isString = typeof options === 'string';
   const payload = defaultsDeep({}, isString ? { url: options } : options, {
     headers: { 'user-agent': userAgent.toString() },
@@ -85,7 +85,7 @@ const requestFn = <T = string>(options: string | DefaultOptions): Effect.Effect<
     },
     catch: (error) => {
       const err = error as RequestError;
-      return new HttpRequestError({
+      return new HttpClientError({
         message: err.message || 'Request failed',
         code: err.code,
         status: err.response?.statusCode,
@@ -104,11 +104,11 @@ const requestFn = <T = string>(options: string | DefaultOptions): Effect.Effect<
   );
 };
 
-const waitForConnectionFn = (retryMs: number = 10_000): Effect.Effect<void, HttpRequestError> => {
+const waitForConnectionFn = (retryMs: number = 10_000): Effect.Effect<void, HttpClientError> => {
   const checkGoogle = Effect.tryPromise({
     try: () => lookup('google.com'),
     catch: (error) =>
-      new HttpRequestError({
+      new HttpClientError({
         message: 'DNS lookup failed',
         code: 'ENOTFOUND',
         cause: error,
@@ -121,17 +121,16 @@ const waitForConnectionFn = (retryMs: number = 10_000): Effect.Effect<void, Http
     timeout: { total: retryMs },
   });
 
-  // Racing DNS lookups against HTTP requests provides a faster determination of network availability by utilizing the first successful response.
   return Effect.raceAll([checkGoogle, checkApple]).pipe(Effect.retry(Schedule.spaced(`${retryMs} millis`)), Effect.asVoid);
 };
 
-export const request = <T = string>(options: string | DefaultOptions) => Effect.flatMap(HttpTag, (service) => service.request<T>(options));
+export const request = <T = string>(options: string | DefaultOptions) => HttpClientTag.pipe(Effect.flatMap((service) => service.request<T>(options)));
 
-export const waitForConnection = (total?: number) => Effect.flatMap(HttpTag, (service) => service.waitForConnection(total));
+export const waitForConnection = (total?: number) => HttpClientTag.pipe(Effect.flatMap((service) => service.waitForConnection(total)));
 
-export const HttpLayer = Layer.succeed(
-  HttpTag,
-  HttpTag.of({
+export const HttpClientLayer = Layer.succeed(
+  HttpClientTag,
+  HttpClientTag.of({
     request: requestFn,
     waitForConnection: waitForConnectionFn,
   }),

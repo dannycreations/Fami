@@ -4,13 +4,13 @@ import { Effect, Random } from 'effect';
 import SteamUser from 'steam-user';
 
 import { SessionStore } from '../core/schemas';
-import { SteamClient } from '../services/SteamService';
+import { SteamClientTag } from '../services/SteamService';
 
 const MAX_IDLE_GAMES = 32;
 
 export const startIdleGames = (username: string) =>
   Effect.gen(function* (_) {
-    const steamClient = yield* _(SteamClient);
+    const steamClient = yield* _(SteamClientTag);
     const sessionStore = yield* _(SessionStore);
     const sessionData = yield* _(sessionStore.get);
 

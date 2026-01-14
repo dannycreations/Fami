@@ -1,6 +1,6 @@
 import { Context, Effect, Schema } from 'effect';
 
-import type { Store } from '../services/StoreService';
+import type { StoreClient } from '../structures/StoreClient';
 
 export class RegistrationSemaphore extends Context.Tag('RegistrationSemaphore')<RegistrationSemaphore, Effect.Semaphore>() {}
 
@@ -46,7 +46,7 @@ export const INITIAL_CONFIG: ConfigContext = {
   users: [],
 };
 
-export const ConfigStore = Context.GenericTag<Store<ConfigContext>>('@services/ConfigStore');
+export const ConfigStoreTag = Context.GenericTag<StoreClient<ConfigContext>>('@schemas/ConfigStore');
 
 export const SessionContext = Schema.Struct({
   lastLoop: Schema.Number,
@@ -69,7 +69,7 @@ export const INITIAL_SESSION: SessionContext = {
   bannedGameIds: [],
 };
 
-export const SessionStore = Context.GenericTag<Store<SessionContext>>('@services/SessionStore');
+export const SessionStore = Context.GenericTag<StoreClient<SessionContext>>('@schemas/SessionStore');
 
 export const UserStatus = Schema.Struct({
   persona_state: Schema.NullOr(Schema.Number),

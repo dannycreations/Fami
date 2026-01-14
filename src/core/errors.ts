@@ -1,11 +1,11 @@
 import { Data, Effect, Schedule } from 'effect';
 
-import { isErrorTimeout } from '../services/HttpService';
+import { isErrorTimeout } from '../structures/HttpClient';
 
 export interface SteamErrorBase {
   readonly message: string;
   readonly eresult?: number;
-  readonly steam?: unknown;
+  readonly cause?: unknown;
 }
 
 export class FreeGameError extends Data.TaggedError('FreeGameError')<SteamErrorBase> {}

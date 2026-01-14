@@ -35,7 +35,7 @@ export type SteamEvent =
       readonly appids: number[];
     };
 
-export interface SteamClient {
+export interface SteamClientTag {
   readonly user: SteamUser;
   readonly community: SteamCommunity;
   readonly events: Stream.Stream<SteamEvent, never>;
@@ -87,7 +87,7 @@ const createEventStream = (user: SteamUser, community: SteamCommunity) =>
     Stream.tapError((error) => Effect.logError('Steam event stream error', error)),
   );
 
-const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, never, Scope.Scope> => {
+const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClientTag, never, Scope.Scope> => {
   return Effect.gen(function* (_) {
     const user = new SteamUser({ dataDirectory, renewRefreshTokens: true, autoRelogin: false });
     const community = new SteamCommunity({ timeout: 10_000 });
@@ -117,7 +117,7 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, ne
           return new SteamError({
             message: err.message,
             eresult: err.eresult,
-            steam: error,
+            cause: error,
           });
         },
       }).pipe(Effect.timeout(timeout));
@@ -143,7 +143,7 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, ne
               Effect.fail(
                 new SteamError({
                   message: error.message || 'Login failed',
-                  steam: error,
+                  cause: error,
                   eresult: error.eresult,
                 }),
               ),
@@ -180,6 +180,6 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, ne
   });
 };
 
-export const SteamClient = Context.GenericTag<SteamClient>('@layer/SteamLayer');
+export const SteamClientTag = Context.GenericTag<SteamClientTag>('@services/SteamLayer');
 
-export const SteamLayer = (dataDirectory: string) => Layer.scoped(SteamClient, createSteamClient(dataDirectory));
+export const SteamClientLayer = (dataDirectory: string) => Layer.scoped(SteamClientTag, createSteamClient(dataDirectory));
