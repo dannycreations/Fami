@@ -35,7 +35,7 @@ export type SteamEvent =
       readonly appids: number[];
     };
 
-export interface SteamClientTag {
+export interface SteamClient {
   readonly user: SteamUser;
   readonly community: SteamCommunity;
   readonly events: Stream.Stream<SteamEvent, never>;
@@ -87,7 +87,7 @@ const createEventStream = (user: SteamUser, community: SteamCommunity) =>
     Stream.tapError((error) => Effect.logError('Steam event stream error', error)),
   );
 
-const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClientTag, never, Scope.Scope> =>
+const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, never, Scope.Scope> =>
   Effect.gen(function* () {
     const user = new SteamUser({ dataDirectory, renewRefreshTokens: true, autoRelogin: false });
     const community = new SteamCommunity({ timeout: 10_000 });
@@ -176,6 +176,6 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClientTag,
     };
   });
 
-export const SteamClientTag = Context.GenericTag<SteamClientTag>('@services/SteamLayer');
+export class SteamClientTag extends Context.Tag('@services/SteamLayer')<SteamClientTag, SteamClient>() {}
 
 export const SteamClientLayer = (dataDirectory: string) => Layer.scoped(SteamClientTag, createSteamClient(dataDirectory));

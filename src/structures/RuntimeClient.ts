@@ -12,16 +12,15 @@ export interface RuntimeOptions {
 
 export const runForkWithCleanUp = <A, E, R>(effect: Effect.Effect<A, E, R>): void => {
   const fiber = Effect.runFork(effect as Effect.Effect<A, E>);
-  process.on('SIGINT', () => {
+
+  const handleSignal = () => {
     Effect.runPromise(Fiber.interrupt(fiber))
       .then(() => process.exit(0))
       .catch(() => process.exit(1));
-  });
-  process.on('SIGTERM', () => {
-    Effect.runPromise(Fiber.interrupt(fiber))
-      .then(() => process.exit(0))
-      .catch(() => process.exit(1));
-  });
+  };
+
+  process.on('SIGINT', handleSignal);
+  process.on('SIGTERM', handleSignal);
 };
 
 export const cycleWithRestart = <A, E, R>(

@@ -126,7 +126,7 @@ export const LoggerClientLayer = (self: Logger.Logger<unknown, void>, logger: pi
         const failure = failures.length > 0 ? failures[0] : null;
 
         if (isErrorLike<{ cause: unknown }>(failure) && failure.cause) {
-          payload.push(Object.assign({}, failure.cause, causePretty));
+          payload.push({ ...failure.cause, ...causePretty });
         } else {
           payload.push(causePretty);
         }

@@ -54,11 +54,15 @@ export const collectFreeGames = (user: UserContext) =>
       if (appIdsToCheck.length > 0) {
         const productInfo = yield* steamClient.getProductInfo(appIdsToCheck, []).pipe(Effect.catchAll(() => Effect.succeed({ apps: null })));
 
-        if (isObjectLike(productInfo.apps)) {
+        const apps = productInfo.apps;
+        if (isObjectLike(apps)) {
           const gamesToFilter = appIdsToCheck
-            .map((appId) => ({ appId, common: productInfo.apps![appId]?.appinfo?.common }))
-            .filter(({ common }) => common && common.releasestate === 'released' && common.type?.toLowerCase() === 'game')
-            .map(({ appId, common }) => ({ name: common!.name, appId }));
+            .map((appId) => ({ appId, common: apps[appId]?.appinfo?.common }))
+            .filter((item) => {
+              const common = item.common;
+              return !!common && common.releasestate === 'released' && common.type?.toLowerCase() === 'game' && typeof common.name === 'string';
+            })
+            .map(({ appId, common }) => ({ name: (common as any).name as string, appId }));
 
           const filteredGames = filterGames(gamesToFilter, { whitelist, blacklist });
 

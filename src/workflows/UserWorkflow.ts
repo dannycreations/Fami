@@ -8,14 +8,15 @@ import { ConfigStoreTag, INITIAL_SESSION, SessionContext, SessionStore, UserCont
 import { collectFreeGames } from '../helpers/FreeGameHelper';
 import { startIdleGames } from '../helpers/IdleGameHelper';
 import { collectOwnGames } from '../helpers/OwnGameHelper';
-import { SteamClientLayer, SteamClientTag } from '../services/SteamService';
+import { SteamClient, SteamClientLayer, SteamClientTag } from '../services/SteamService';
 import { waitForConnection } from '../structures/HttpClient';
 import { StoreClientLayer } from '../structures/StoreClient';
 import { handleSteamEvent, USER_OFFLINE_STATE, UserWorkflowState } from './UserEvents';
 
-const whenLoggedOn = (state: UserWorkflowState) => {
-  return <A, E, R>(effect: Effect.Effect<A, E, R>) => Deferred.await(state.loggedOn).pipe(Effect.zipRight(effect));
-};
+const whenLoggedOn =
+  (state: UserWorkflowState) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Deferred.await(state.loggedOn).pipe(Effect.zipRight(effect));
 
 const cycleCollector = (user: UserContext, state: UserWorkflowState) => {
   const checkLoggedOn = whenLoggedOn(state);
@@ -39,7 +40,7 @@ const cycleCollector = (user: UserContext, state: UserWorkflowState) => {
   return Effect.all([ownGamesLoop, freeGamesLoop], { concurrency: 'unbounded' });
 };
 
-const cycleIdler = (user: UserContext, steamClient: SteamClientTag, state: UserWorkflowState) =>
+const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
   Effect.gen(function* () {
     const checkLoggedOn = whenLoggedOn(state);
     const nextIdleTimeRef = yield* Ref.make(0);
@@ -82,7 +83,7 @@ const cycleIdler = (user: UserContext, steamClient: SteamClientTag, state: UserW
     return yield* idleLoop;
   });
 
-const tryLogin = (user: UserContext, steamClient: SteamClientTag) =>
+const tryLogin = (user: UserContext, steamClient: SteamClient) =>
   Effect.gen(function* () {
     const loginDetails = user.refreshToken
       ? ({ refreshToken: user.refreshToken } satisfies SteamUser.LogOnDetailsRefresh)

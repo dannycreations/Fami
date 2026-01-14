@@ -7,7 +7,7 @@ import SteamUser from 'steam-user';
 import { ConfigStoreTag, SessionStore, UserContext } from '../core/schemas';
 import { getRateLimitSleep } from '../core/utils';
 import { collectOwnGames } from '../helpers/OwnGameHelper';
-import { SteamClientTag, SteamEvent } from '../services/SteamService';
+import { SteamClient, SteamEvent } from '../services/SteamService';
 import { waitForConnection } from '../structures/HttpClient';
 
 export const DEFAULT_SLEEP_DURATION = '10 seconds';
@@ -26,7 +26,7 @@ export interface UserWorkflowState {
   readonly reset: () => Effect.Effect<void>;
 }
 
-export const handleLoggedOn = (user: UserContext, steamClient: SteamClientTag, state: UserWorkflowState) =>
+export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
   Effect.gen(function* () {
     const configStore = yield* ConfigStoreTag;
     const sessionStore = yield* SessionStore;
@@ -149,7 +149,7 @@ export const handleVacBans = (user: UserContext, event: Extract<SteamEvent, { ty
 export const handleUserUpdate = (
   user: UserContext,
   event: Extract<SteamEvent, { type: 'user' }>,
-  steamClient: SteamClientTag,
+  steamClient: SteamClient,
   state: UserWorkflowState,
 ) =>
   Effect.gen(function* () {
@@ -181,11 +181,13 @@ export const handleUserUpdate = (
     }
   });
 
-export const handleSteamEvent = (event: SteamEvent, user: UserContext, steamClient: SteamClientTag, state: UserWorkflowState) =>
+export const handleSteamEvent = (event: SteamEvent, user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
   Effect.gen(function* () {
     const configStore = yield* ConfigStoreTag;
 
-    const handlers: { [K in SteamEvent['type']]: (event: Extract<SteamEvent, { type: K }>) => Effect.Effect<any, any, any> } = {
+    const handlers: {
+      [K in SteamEvent['type']]: (event: Extract<SteamEvent, { type: K }>) => Effect.Effect<any, any, any>;
+    } = {
       loggedOn: () => handleLoggedOn(user, steamClient, state),
       refreshToken: (e) =>
         configStore.update((cfg) => ({

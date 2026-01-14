@@ -46,7 +46,7 @@ export const INITIAL_CONFIG: ConfigContext = {
   users: [],
 };
 
-export const ConfigStoreTag = Context.GenericTag<StoreClient<ConfigContext>>('@schemas/ConfigStore');
+export class ConfigStoreTag extends Context.Tag('@schemas/ConfigStore')<ConfigStoreTag, StoreClient<ConfigContext>>() {}
 
 export const SessionContext = Schema.Struct({
   lastLoop: Schema.Number,
@@ -69,7 +69,7 @@ export const INITIAL_SESSION: SessionContext = {
   bannedGameIds: [],
 };
 
-export const SessionStore = Context.GenericTag<StoreClient<SessionContext>>('@schemas/SessionStore');
+export class SessionStore extends Context.Tag('@schemas/SessionStore')<SessionStore, StoreClient<SessionContext>>() {}
 
 export const UserStatus = Schema.Struct({
   persona_state: Schema.NullOr(Schema.Number),

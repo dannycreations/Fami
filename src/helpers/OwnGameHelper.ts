@@ -21,18 +21,18 @@ export const collectOwnGames = (user: UserContext) =>
 
     const { whitelist } = userPreferences(configData, user, sessionData.bannedGameIds);
 
-    const apps = yield* steamClient
-      .getUserOwnedApps(steamId, {
-        includeAppInfo: true,
-        includeFreeSub: true,
-        skipUnvettedApps: false,
-        includePlayedFreeGames: true,
-      } as SteamUser.GetUserOwnedAppsOptions)
-      .pipe(
-        RetryTimeoutPolicy,
-        Effect.map((r) => r.apps),
-        catchAndLogUnlessTimeout(`${user.username} OwnGame scanning failed`, []),
-      );
+    const options = {
+      includeAppInfo: true,
+      includeFreeSub: true,
+      skipUnvettedApps: false,
+      includePlayedFreeGames: true,
+    } as SteamUser.GetUserOwnedAppsOptions;
+
+    const apps = yield* steamClient.getUserOwnedApps(steamId, options).pipe(
+      RetryTimeoutPolicy,
+      Effect.map((r) => r.apps),
+      catchAndLogUnlessTimeout(`${user.username} OwnGame scanning failed`, []),
+    );
 
     const combinedGames = unionBy(
       apps.map((a) => ({ appId: a.appid, name: a.name || 'unknown' })),
