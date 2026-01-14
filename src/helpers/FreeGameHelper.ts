@@ -23,28 +23,27 @@ const fetchSearchPage = (page: number) =>
     },
     retry: -1,
   }).pipe(
-    Effect.mapError((error) => new FreeGameError({ message: 'Failed to fetch HTML', cause: error })),
+    Effect.mapError((cause) => new FreeGameError({ message: 'Failed to fetch HTML', cause })),
     RetryTimeoutPolicy,
   );
 
 export const collectFreeGames = (user: UserContext) =>
-  Effect.gen(function* (_) {
-    const configStore = yield* _(ConfigStoreTag);
-    const sessionStore = yield* _(SessionStore);
-    const configData = yield* _(configStore.get);
+  Effect.gen(function* () {
+    const configStore = yield* ConfigStoreTag;
+    const sessionStore = yield* SessionStore;
+    const configData = yield* configStore.get;
 
     if (!configData.fetchFreeGames && !user.fetchFreeGames) return;
 
-    const steamClient = yield* _(SteamClientTag);
-    const sessionData = yield* _(sessionStore.get);
+    const steamClient = yield* SteamClientTag;
+    const sessionData = yield* sessionStore.get;
 
     const { whitelist, blacklist } = userPreferences(configData, user, [
       ...sessionData.bannedGameIds,
       ...sessionData.ownedGameList.map((g) => g.appId),
     ]);
 
-    const appIds = yield* _(
-      fetchSearchPage(sessionData.lastPage),
+    const appIds = yield* fetchSearchPage(sessionData.lastPage).pipe(
       Effect.map((res) => parseAppIdsFromHtml(res.body)),
       catchAndLogUnlessTimeout(`${user.username} FreeGame collection failed`, []),
     );
@@ -53,10 +52,7 @@ export const collectFreeGames = (user: UserContext) =>
       const appIdsToCheck = appIds.filter((id) => !blacklist.has(id) && !sessionData.freeGameIds.includes(id));
 
       if (appIdsToCheck.length > 0) {
-        const productInfo = yield* _(
-          steamClient.getProductInfo(appIdsToCheck, []),
-          Effect.catchAll(() => Effect.succeed({ apps: null })),
-        );
+        const productInfo = yield* steamClient.getProductInfo(appIdsToCheck, []).pipe(Effect.catchAll(() => Effect.succeed({ apps: null })));
 
         if (isObjectLike(productInfo.apps)) {
           const gamesToFilter = appIdsToCheck
@@ -67,44 +63,40 @@ export const collectFreeGames = (user: UserContext) =>
           const filteredGames = filterGames(gamesToFilter, { whitelist, blacklist });
 
           if (filteredGames.length > 0) {
-            yield* _(
-              sessionStore.update((data) => ({
-                ...data,
-                freeGameIds: [...data.freeGameIds, ...filteredGames.map((g) => g.appId)],
-                freeGameList: [...data.freeGameList, ...filteredGames],
-              })),
-            );
+            yield* sessionStore.update((data) => ({
+              ...data,
+              freeGameIds: [...data.freeGameIds, ...filteredGames.map((g) => g.appId)],
+              freeGameList: [...data.freeGameList, ...filteredGames],
+            }));
           }
         }
       }
-      yield* _(sessionStore.update((data) => ({ ...data, lastPage: data.lastPage + 1 })));
+      yield* sessionStore.update((data) => ({ ...data, lastPage: data.lastPage + 1 }));
     } else {
-      yield* _(
-        sessionStore.update((data) => {
-          const shouldReset = data.lastLoop + 1 >= 5;
-          return {
-            ...data,
-            lastLoop: shouldReset ? 0 : data.lastLoop + 1,
-            lastPage: shouldReset ? 1 : data.lastPage,
-            forceRegister: shouldReset ? true : data.forceRegister,
-            freeGameIds: shouldReset ? [] : data.freeGameIds,
-          };
-        }),
-      );
+      yield* sessionStore.update((data) => {
+        const shouldReset = data.lastLoop + 1 >= 5;
+        return {
+          ...data,
+          lastLoop: shouldReset ? 0 : data.lastLoop + 1,
+          lastPage: shouldReset ? 1 : data.lastPage,
+          forceRegister: shouldReset ? true : data.forceRegister,
+          freeGameIds: shouldReset ? [] : data.freeGameIds,
+        };
+      });
     }
 
-    const semaphore = yield* _(RegistrationSemaphore);
-    yield* _(semaphore.withPermits(1)(registerFreeGames(user)));
+    const semaphore = yield* RegistrationSemaphore;
+    yield* semaphore.withPermits(1)(registerFreeGames(user));
   });
 
 export const registerFreeGames = (user: UserContext) =>
-  Effect.gen(function* (_) {
-    const steamClient = yield* _(SteamClientTag);
-    const configStore = yield* _(ConfigStoreTag);
-    const sessionStore = yield* _(SessionStore);
+  Effect.gen(function* () {
+    const steamClient = yield* SteamClientTag;
+    const configStore = yield* ConfigStoreTag;
+    const sessionStore = yield* SessionStore;
 
-    const configData = yield* _(configStore.get);
-    const sessionData = yield* _(sessionStore.get);
+    const configData = yield* configStore.get;
+    const sessionData = yield* sessionStore.get;
 
     const isSufficient = sessionData.freeGameList.length >= MAX_FREE_GAMES_BATCH || sessionData.forceRegister;
     if (!isSufficient || sessionData.freeGameList.length === 0) return;
@@ -112,14 +104,13 @@ export const registerFreeGames = (user: UserContext) =>
     const gamesToRegister = sessionData.freeGameList.slice(0, MAX_FREE_GAMES_BATCH);
     const gameIdsToRegister = new Set(gamesToRegister.map((g) => g.appId));
 
-    yield* _(
-      steamClient.requestFreeLicense([...gameIdsToRegister]),
+    yield* steamClient.requestFreeLicense([...gameIdsToRegister]).pipe(
       Effect.tapError((error) =>
-        Effect.gen(function* (_) {
+        Effect.gen(function* () {
           if ('eresult' in error && error.eresult === SteamUser.EResult.RateLimitExceeded) {
             const sleepMs = getRateLimitSleep(configData.refreshGames);
-            yield* _(Effect.logWarning(`${user.username} FreeGame rate limit exceeded. Waiting ${sleepMs / 60000}m...`));
-            yield* _(Effect.sleep(`${sleepMs} millis`));
+            yield* Effect.logWarning(`${user.username} FreeGame rate limit exceeded. Waiting ${sleepMs / 60000}m...`);
+            yield* Effect.sleep(`${sleepMs} millis`);
           }
         }),
       ),
@@ -127,14 +118,12 @@ export const registerFreeGames = (user: UserContext) =>
       catchAndLogUnlessTimeout(`${user.username} FreeGame registration failed`, undefined),
     );
 
-    yield* _(Effect.logInfo(`${user.username} added ${gamesToRegister.length}/${sessionData.freeGameList.length}/${sessionData.lastPage} new games`));
+    yield* Effect.logInfo(`${user.username} added ${gamesToRegister.length}/${sessionData.freeGameList.length}/${sessionData.lastPage} new games`);
 
-    yield* _(
-      sessionStore.update((data) => ({
-        ...data,
-        freeGameList: data.freeGameList.filter((g) => !gameIdsToRegister.has(g.appId)),
-        lastLoop: 0,
-        forceRegister: false,
-      })),
-    );
+    yield* sessionStore.update((data) => ({
+      ...data,
+      freeGameList: data.freeGameList.filter((g) => !gameIdsToRegister.has(g.appId)),
+      lastLoop: 0,
+      forceRegister: false,
+    }));
   });

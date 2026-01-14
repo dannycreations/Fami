@@ -62,7 +62,7 @@ export const createStore = <A extends object, I, R>(filePath: string, schema: Sc
 
     const rawData = yield* loadStore(filePath, initialData);
     const validatedData = yield* decode(rawData).pipe(
-      Effect.mapError((error) => new StoreClientError({ message: `Validation failed for store: ${filePath}`, cause: error })),
+      Effect.mapError((cause) => new StoreClientError({ message: `Validation failed for store: ${filePath}`, cause })),
     );
 
     yield* Ref.set(dataRef, validatedData);

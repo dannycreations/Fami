@@ -8,33 +8,31 @@ import { getFilteredGames, userPreferences } from '../core/utils';
 import { SteamClientTag } from '../services/SteamService';
 
 export const collectOwnGames = (user: UserContext) =>
-  Effect.gen(function* (_) {
-    const steamClient = yield* _(SteamClientTag);
-    const configStore = yield* _(ConfigStoreTag);
-    const sessionStore = yield* _(SessionStore);
+  Effect.gen(function* () {
+    const steamClient = yield* SteamClientTag;
+    const configStore = yield* ConfigStoreTag;
+    const sessionStore = yield* SessionStore;
 
-    const steamId = yield* _(steamClient.steamID);
+    const steamId = yield* steamClient.steamID;
     if (!steamId) return;
 
-    const configData = yield* _(configStore.get);
-    const sessionData = yield* _(sessionStore.get);
+    const configData = yield* configStore.get;
+    const sessionData = yield* sessionStore.get;
 
     const { whitelist } = userPreferences(configData, user, sessionData.bannedGameIds);
 
-    const fetchApps = steamClient
+    const apps = yield* steamClient
       .getUserOwnedApps(steamId, {
         includeAppInfo: true,
         includeFreeSub: true,
         skipUnvettedApps: false,
         includePlayedFreeGames: true,
       } as SteamUser.GetUserOwnedAppsOptions)
-      .pipe(RetryTimeoutPolicy);
-
-    const apps = yield* _(
-      fetchApps,
-      Effect.map((r) => r.apps),
-      catchAndLogUnlessTimeout(`${user.username} OwnGame scanning failed`, []),
-    );
+      .pipe(
+        RetryTimeoutPolicy,
+        Effect.map((r) => r.apps),
+        catchAndLogUnlessTimeout(`${user.username} OwnGame scanning failed`, []),
+      );
 
     const combinedGames = unionBy(
       apps.map((a) => ({ appId: a.appid, name: a.name || 'unknown' })),
@@ -47,11 +45,9 @@ export const collectOwnGames = (user: UserContext) =>
     const newGames = filteredGames.filter((g) => !sessionData.ownedGameList.some((r) => r.appId === g.appId));
 
     if (newGames.length > 0) {
-      yield* _(
-        sessionStore.update((data) => ({
-          ...data,
-          ownedGameList: [...data.ownedGameList, ...newGames],
-        })),
-      );
+      yield* sessionStore.update((data) => ({
+        ...data,
+        ownedGameList: [...data.ownedGameList, ...newGames],
+      }));
     }
   });

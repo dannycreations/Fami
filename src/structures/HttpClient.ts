@@ -94,11 +94,7 @@ const requestFn = <T = string>(options: string | DefaultOptions): Effect.Effect<
     },
   }).pipe(
     Effect.retry({
-      while: (error) => {
-        const isNetworkError = !!error.code && ERROR_CODES.includes(error.code);
-        const isRetryableStatus = !!error.status && ERROR_STATUS_CODES.includes(error.status);
-        return isNetworkError || isRetryableStatus || isErrorTimeout(error);
-      },
+      while: (error) => ERROR_CODES.includes(error.code ?? '') || ERROR_STATUS_CODES.includes(error.status ?? 0) || isErrorTimeout(error),
       schedule: retryCount < 0 ? Schedule.forever : Schedule.recurs(retryCount),
     }),
   );
@@ -124,9 +120,9 @@ const waitForConnectionFn = (retryMs: number = 10_000): Effect.Effect<void, Http
   return Effect.raceAll([checkGoogle, checkApple]).pipe(Effect.retry(Schedule.spaced(`${retryMs} millis`)), Effect.asVoid);
 };
 
-export const request = <T = string>(options: string | DefaultOptions) => HttpClientTag.pipe(Effect.flatMap((service) => service.request<T>(options)));
+export const request = <T = string>(options: string | DefaultOptions) => Effect.flatMap(HttpClientTag, (service) => service.request<T>(options));
 
-export const waitForConnection = (total?: number) => HttpClientTag.pipe(Effect.flatMap((service) => service.waitForConnection(total)));
+export const waitForConnection = (total?: number) => Effect.flatMap(HttpClientTag, (service) => service.waitForConnection(total));
 
 export const HttpClientLayer = Layer.succeed(
   HttpClientTag,

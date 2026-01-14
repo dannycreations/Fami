@@ -3,34 +3,31 @@ import { ConfigContext, GameContext, UserContext } from './schemas';
 export const RATE_LIMIT_MIN_MS = 1_800_000;
 export const EXCLUDED_GAME_NAME_PATTERN = /\b(?:Beta|Demo|P(?:laytest|TS)|Public (?:Beta|Test)|Test|Unstable)\b/i;
 
-export const userPreferences = (config: ConfigContext, user: UserContext, bannedIds: readonly number[] = []) => {
-  const whitelist = new Set([...(config.whitelistGameIds || []), ...(user.whitelistGameIds || [])]);
-  const blacklist = new Set([...(config.blacklistGameIds || []), ...(user.blacklistGameIds || []), ...bannedIds]);
-  return { whitelist, blacklist };
-};
+export const userPreferences = (config: ConfigContext, user: UserContext, bannedIds: readonly number[] = []) => ({
+  whitelist: new Set([...(config.whitelistGameIds || []), ...(user.whitelistGameIds || [])]),
+  blacklist: new Set([...(config.blacklistGameIds || []), ...(user.blacklistGameIds || []), ...bannedIds]),
+});
 
 export const filterGames = (
   games: readonly GameContext[],
-  options: {
+  {
+    whitelist,
+    blacklist,
+    excludePatterns = true,
+  }: {
     whitelist: ReadonlySet<number>;
     blacklist: ReadonlySet<number>;
     excludePatterns?: boolean;
   },
-) => {
-  const { whitelist, blacklist, excludePatterns = true } = options;
-
-  return games.filter((game) => {
+) =>
+  games.filter((game) => {
     if (whitelist.has(game.appId)) return true;
     if (blacklist.has(game.appId)) return false;
-    if (excludePatterns && EXCLUDED_GAME_NAME_PATTERN.test(game.name)) return false;
-    return true;
+    return !(excludePatterns && EXCLUDED_GAME_NAME_PATTERN.test(game.name));
   });
-};
 
-export const getFilteredGames = (games: readonly GameContext[], config: ConfigContext, user: UserContext, bannedIds: readonly number[] = []) => {
-  const prefs = userPreferences(config, user, bannedIds);
-  return filterGames(games, prefs);
-};
+export const getFilteredGames = (games: readonly GameContext[], config: ConfigContext, user: UserContext, bannedIds: readonly number[] = []) =>
+  filterGames(games, userPreferences(config, user, bannedIds));
 
 export const parseAppIdsFromHtml = (html: string): number[] => {
   const matches = html.match(/data-ds-appid="([^"]+)"/g);

@@ -9,12 +9,12 @@ import { SteamClientTag } from '../services/SteamService';
 const MAX_IDLE_GAMES = 32;
 
 export const startIdleGames = (username: string) =>
-  Effect.gen(function* (_) {
-    const steamClient = yield* _(SteamClientTag);
-    const sessionStore = yield* _(SessionStore);
-    const sessionData = yield* _(sessionStore.get);
+  Effect.gen(function* () {
+    const steamClient = yield* SteamClientTag;
+    const sessionStore = yield* SessionStore;
+    const sessionData = yield* sessionStore.get;
 
-    const idleMs = (yield* _(Random.nextIntBetween(60, 180))) * 60_000;
+    const idleMs = (yield* Random.nextIntBetween(60, 180)) * 60_000;
     const nextIdleAt = Date.now() + idleMs;
 
     const allOwnedIds = sessionData.ownedGameList.map((game) => game.appId);
@@ -27,12 +27,12 @@ export const startIdleGames = (username: string) =>
     const shuffledIds = shuffle(allOwnedIds);
     const idsToIdle = shuffledIds.slice(0, maxIdleTotal);
 
-    yield* _(steamClient.setPersona(SteamUser.EPersonaState.Online));
-    yield* _(steamClient.gamesPlayed(idsToIdle));
+    yield* steamClient.setPersona(SteamUser.EPersonaState.Online);
+    yield* steamClient.gamesPlayed(idsToIdle);
 
     const durationString = humanizeDuration(idleMs, { units: ['h', 'm'], round: true });
-    yield* _(Effect.logInfo(`${username} idling ${idsToIdle.length} games for ${durationString}`));
-    yield* _(Effect.logInfo(`- ${idsToIdle.join(', ').trim()}`));
+    yield* Effect.logInfo(`${username} idling ${idsToIdle.length} games for ${durationString}`);
+    yield* Effect.logInfo(`- ${idsToIdle.join(', ').trim()}`);
 
     return nextIdleAt;
   });

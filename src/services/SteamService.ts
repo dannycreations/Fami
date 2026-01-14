@@ -87,19 +87,17 @@ const createEventStream = (user: SteamUser, community: SteamCommunity) =>
     Stream.tapError((error) => Effect.logError('Steam event stream error', error)),
   );
 
-const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClientTag, never, Scope.Scope> => {
-  return Effect.gen(function* (_) {
+const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClientTag, never, Scope.Scope> =>
+  Effect.gen(function* () {
     const user = new SteamUser({ dataDirectory, renewRefreshTokens: true, autoRelogin: false });
     const community = new SteamCommunity({ timeout: 10_000 });
 
-    yield* _(
-      Effect.addFinalizer(() =>
-        Effect.sync(() => {
-          user.logOff();
-          user.removeAllListeners();
-          community.removeAllListeners();
-        }),
-      ),
+    yield* Effect.addFinalizer(() =>
+      Effect.sync(() => {
+        user.logOff();
+        user.removeAllListeners();
+        community.removeAllListeners();
+      }),
     );
 
     const wrapPromise = <A>(
@@ -111,14 +109,13 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClientTag,
         catch: (error) => {
           const err = error as Error & { eresult?: number };
           // Suppress internal "timed out" errors
-          if (err.message.toLowerCase().includes('timed out')) {
-            return new Cause.TimeoutException();
-          }
-          return new SteamError({
-            message: err.message,
-            eresult: err.eresult,
-            cause: error,
-          });
+          return err.message.toLowerCase().includes('timed out')
+            ? new Cause.TimeoutException()
+            : new SteamError({
+                message: err.message,
+                eresult: err.eresult,
+                cause: error,
+              });
         },
       }).pipe(Effect.timeout(timeout));
 
@@ -178,7 +175,6 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClientTag,
         }),
     };
   });
-};
 
 export const SteamClientTag = Context.GenericTag<SteamClientTag>('@services/SteamLayer');
 

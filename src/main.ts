@@ -10,22 +10,22 @@ import { cycleMidnightRestart, cycleWithRestart, runForkWithCleanUp } from './st
 import { StoreClientLayer } from './structures/StoreClient';
 import { runUserWorkflow } from './workflows/UserWorkflow';
 
-const program = Effect.gen(function* (_) {
-  const configStore = yield* _(ConfigStoreTag);
+const program = Effect.gen(function* () {
+  const configStore = yield* ConfigStoreTag;
 
-  const config = yield* _(configStore.get);
+  const config = yield* configStore.get;
 
   if (config.users.length === 0) {
-    yield* _(Effect.logWarning('No users found in settings.json. Please add users to the configuration.'));
+    yield* Effect.logWarning('No users found in settings.json. Please add users to the configuration.');
     return;
   }
 
-  yield* _(configStore.setDelay(config.refreshGames));
+  yield* configStore.setDelay(config.refreshGames);
 
-  const registrationSemaphore = yield* _(Effect.makeSemaphore(1));
+  const registrationSemaphore = yield* Effect.makeSemaphore(1);
   const semaphore = Effect.provideService(RegistrationSemaphore, registrationSemaphore);
 
-  yield* _(Effect.all([...config.users.map((user) => runUserWorkflow(user).pipe(semaphore)), cycleMidnightRestart], { concurrency: 'unbounded' }));
+  yield* Effect.all([...config.users.map((user) => runUserWorkflow(user).pipe(semaphore)), cycleMidnightRestart], { concurrency: 'unbounded' });
 });
 
 const logger = createLogger({ exception: false, rejection: false });
