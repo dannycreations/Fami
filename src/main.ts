@@ -12,7 +12,6 @@ import { runUserWorkflow } from './workflows/UserWorkflow';
 
 const program = Effect.gen(function* () {
   const configStore = yield* ConfigStoreTag;
-
   const config = yield* configStore.get;
 
   if (config.users.length === 0) {
@@ -23,9 +22,10 @@ const program = Effect.gen(function* () {
   yield* configStore.setDelay(config.refreshGames);
 
   const registrationSemaphore = yield* Effect.makeSemaphore(1);
-  const semaphore = Effect.provideService(RegistrationSemaphore, registrationSemaphore);
 
-  yield* Effect.all([...config.users.map((user) => runUserWorkflow(user).pipe(semaphore)), cycleMidnightRestart], { concurrency: 'unbounded' });
+  yield* Effect.all([...config.users.map((user) => runUserWorkflow(user)), cycleMidnightRestart], {
+    concurrency: 'unbounded',
+  }).pipe(Effect.provideService(RegistrationSemaphore, registrationSemaphore));
 });
 
 const logger = createLogger({ exception: false, rejection: false });

@@ -14,7 +14,9 @@ export const collectOwnGames = (user: UserContext) =>
     const sessionStore = yield* SessionStore;
 
     const steamId = yield* steamClient.steamID;
-    if (!steamId) return;
+    if (!steamId) {
+      return;
+    }
 
     const configData = yield* configStore.get;
     const sessionData = yield* sessionStore.get;

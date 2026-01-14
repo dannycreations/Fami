@@ -25,6 +25,7 @@ const cycleCollector = (user: UserContext, state: UserWorkflowState) => {
     Effect.gen(function* () {
       const configStore = yield* ConfigStoreTag;
       const config = yield* configStore.get;
+
       yield* collectOwnGames(user);
       yield* Effect.sleep(`${config.refreshGames} millis`);
     }),
@@ -118,7 +119,9 @@ const createUserSession = (user: UserContext) =>
           const hasIds = appIds.length > 0;
           const { isPlaying } = yield* Ref.get(stateRef);
 
-          if (!hasIds && !isPlaying) return;
+          if (!hasIds && !isPlaying) {
+            return;
+          }
 
           yield* steamClient.updatePersonaAndGames(hasIds ? SteamUser.EPersonaState.Online : SteamUser.EPersonaState.Invisible, appIds);
           yield* Ref.update(stateRef, (s) => ({ ...s, isPlaying: hasIds }));

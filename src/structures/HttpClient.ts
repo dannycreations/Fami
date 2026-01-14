@@ -49,10 +49,10 @@ export class HttpClientTag extends Context.Tag('@structures/HttpClient')<HttpCli
 const gotInstance: Got = got.bind(got);
 const userAgent = new UserAgent({ deviceCategory: 'desktop' });
 
-export const isErrorTimeout = (error: unknown): boolean =>
+export const isErrorTimeout = (error: unknown) =>
   isErrorLike<{ _tag: string }>(error) && (error._tag === 'TimeoutException' || error.code === 'ETIMEDOUT');
 
-const requestFn = <T = string>(options: string | DefaultOptions): Effect.Effect<Response<T>, HttpClientError> => {
+const requestFn = <T = string>(options: string | DefaultOptions) => {
   const isString = typeof options === 'string';
   const payload = defaultsDeep({}, isString ? { url: options } : options, {
     headers: { 'user-agent': userAgent.toString() },
@@ -60,7 +60,7 @@ const requestFn = <T = string>(options: string | DefaultOptions): Effect.Effect<
   });
 
   const retryCount = isString ? 3 : (options.retry ?? 3);
-  const { initial = 10_000, transmission = 30_000, total = 60_000 } = payload.timeout || {};
+  const { initial = 10_000, transmission = 30_000, total = 60_000 } = payload.timeout ?? {};
 
   return Effect.tryPromise({
     try: (signal) => {
@@ -100,7 +100,7 @@ const requestFn = <T = string>(options: string | DefaultOptions): Effect.Effect<
   );
 };
 
-const waitForConnectionFn = (retryMs: number = 10_000): Effect.Effect<void, HttpClientError> => {
+const waitForConnectionFn = (retryMs: number = 10_000) => {
   const checkGoogle = Effect.tryPromise({
     try: () => lookup('google.com'),
     catch: (error) =>

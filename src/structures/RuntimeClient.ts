@@ -10,8 +10,8 @@ export interface RuntimeOptions {
   readonly restartDelayMs?: number;
 }
 
-export const runForkWithCleanUp = <A, E, R>(effect: Effect.Effect<A, E, R>): void => {
-  const fiber = Effect.runFork(effect as Effect.Effect<A, E>);
+export const runForkWithCleanUp = <A, E>(effect: Effect.Effect<A, E>) => {
+  const fiber = Effect.runFork(effect);
 
   const handleSignal = () => {
     Effect.runPromise(Fiber.interrupt(fiber))
@@ -23,10 +23,7 @@ export const runForkWithCleanUp = <A, E, R>(effect: Effect.Effect<A, E, R>): voi
   process.on('SIGTERM', handleSignal);
 };
 
-export const cycleWithRestart = <A, E, R>(
-  program: Effect.Effect<A, E, R | Scope.Scope>,
-  options: RuntimeOptions = {},
-): Effect.Effect<void, never, R> => {
+export const cycleWithRestart = <A, E, R>(program: Effect.Effect<A, E, R | Scope.Scope>, options: RuntimeOptions = {}) => {
   const { maxRestarts = 3, intervalMs = 60_000, restartDelayMs = 5_000 } = options;
   const restartTimes: number[] = [];
 
@@ -48,7 +45,7 @@ export const cycleWithRestart = <A, E, R>(
 
       if (restartTimes.length >= maxRestarts) {
         yield* Effect.logFatal(chalk`{bold.red System crashed too many times (${maxRestarts}+ in ${intervalMs / 1000}s). Shutting down...}`, cause);
-        process.exit(1);
+        yield* Effect.sync(() => process.exit(1));
       }
 
       yield* Effect.logError(chalk`{bold.red System encountered an error}`, cause);

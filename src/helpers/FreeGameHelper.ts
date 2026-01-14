@@ -33,7 +33,9 @@ export const collectFreeGames = (user: UserContext) =>
     const sessionStore = yield* SessionStore;
     const configData = yield* configStore.get;
 
-    if (!configData.fetchFreeGames && !user.fetchFreeGames) return;
+    if (!configData.fetchFreeGames && !user.fetchFreeGames) {
+      return;
+    }
 
     const steamClient = yield* SteamClientTag;
     const sessionData = yield* sessionStore.get;
@@ -57,12 +59,14 @@ export const collectFreeGames = (user: UserContext) =>
         const apps = productInfo.apps;
         if (isObjectLike(apps)) {
           const gamesToFilter = appIdsToCheck
-            .map((appId) => ({ appId, common: apps[appId]?.appinfo?.common }))
+            .map((appId) => ({ appId, common: apps[appId]?.appinfo?.common as Record<string, unknown> | undefined }))
             .filter((item) => {
               const common = item.common;
-              return !!common && common.releasestate === 'released' && common.type?.toLowerCase() === 'game' && typeof common.name === 'string';
+              return (
+                !!common && common.releasestate === 'released' && String(common.type).toLowerCase() === 'game' && typeof common.name === 'string'
+              );
             })
-            .map(({ appId, common }) => ({ name: (common as any).name as string, appId }));
+            .map(({ appId, common }) => ({ name: String(common?.name), appId }));
 
           const filteredGames = filterGames(gamesToFilter, { whitelist, blacklist });
 
@@ -75,6 +79,7 @@ export const collectFreeGames = (user: UserContext) =>
           }
         }
       }
+
       yield* sessionStore.update((data) => ({ ...data, lastPage: data.lastPage + 1 }));
     } else {
       yield* sessionStore.update((data) => {
@@ -103,7 +108,9 @@ export const registerFreeGames = (user: UserContext) =>
     const sessionData = yield* sessionStore.get;
 
     const isSufficient = sessionData.freeGameList.length >= MAX_FREE_GAMES_BATCH || sessionData.forceRegister;
-    if (!isSufficient || sessionData.freeGameList.length === 0) return;
+    if (!isSufficient || sessionData.freeGameList.length === 0) {
+      return;
+    }
 
     const gamesToRegister = sessionData.freeGameList.slice(0, MAX_FREE_GAMES_BATCH);
     const gameIdsToRegister = new Set(gamesToRegister.map((g) => g.appId));

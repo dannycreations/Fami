@@ -1,11 +1,11 @@
 import { join } from 'node:path';
 import { isErrorLike } from '@vegapunk/utilities/result';
-import { Cause, Layer, Logger, LogLevel } from 'effect';
+import { Cause, Logger, LogLevel } from 'effect';
 import pino from 'pino';
 import pinoPretty from 'pino-pretty';
 
 import type { ReadonlyRecord } from 'effect/Record';
-import type { Level, Logger as LoggerPino, StreamEntry } from 'pino';
+import type { Level, StreamEntry } from 'pino';
 
 export const LOG_LEVEL_MAP: ReadonlyRecord<LogLevel.LogLevel['_tag'], pino.LevelWithSilent> = {
   All: 'trace',
@@ -27,7 +27,7 @@ export interface LoggerOptions {
   readonly rejection?: boolean;
 }
 
-export const createLogger = (options: LoggerOptions = {}): LoggerPino => {
+export const createLogger = (options: LoggerOptions = {}) => {
   const {
     dir = join(process.cwd(), 'logs'),
     level = process.env.NODE_ENV === 'development' ? 'debug' : 'info',
@@ -91,6 +91,7 @@ export const createLogger = (options: LoggerOptions = {}): LoggerPino => {
               return method.apply(this, [args.join(' ')]);
             }
           }
+
           return method.apply(this, args);
         },
       },
@@ -113,7 +114,7 @@ export const createLogger = (options: LoggerOptions = {}): LoggerPino => {
   return instance;
 };
 
-export const LoggerClientLayer = (self: Logger.Logger<unknown, void>, logger: pino.Logger): Layer.Layer<never> =>
+export const LoggerClientLayer = (self: Logger.Logger<unknown, void>, logger: pino.Logger) =>
   Logger.replace(
     self,
     Logger.make(({ logLevel, message, cause }) => {

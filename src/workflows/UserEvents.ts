@@ -33,6 +33,7 @@ export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, stat
 
     const steamId = yield* steamClient.steamID;
     const steamIdString = steamId!.toString();
+
     yield* Effect.logInfo(chalk`{bold.yellow ${user.username} logged on!}`);
     yield* steamClient.setPersona(SteamUser.EPersonaState.Invisible);
 
@@ -45,6 +46,7 @@ export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, stat
     yield* sessionStore.setDelay(config.refreshGames);
 
     yield* collectOwnGames(user);
+
     const sessionData = yield* sessionStore.get;
     yield* Effect.logInfo(`${user.username} owns ${sessionData.ownedGameList.length} games`);
     yield* Deferred.succeed(state.loggedOn, undefined);
@@ -56,22 +58,26 @@ export const handleSteamGuard = (user: UserContext, event: Extract<SteamEvent, {
       yield* Effect.logInfo(`${user.username} Steam Guard wrong`);
       yield* Effect.sleep(DEFAULT_SLEEP_DURATION);
     }
+
     yield* Effect.logInfo(`${user.username} needs Steam Guard`);
+
     if (user.secret) {
       const code = SteamTotp.generateAuthCode(user.secret);
       yield* Effect.logInfo(`${user.username} used ${code} as Steam Guard`);
       event.callback(code);
-    } else {
-      yield* Effect.async<void>((resume) => {
-        const rl = createInterface({ input: process.stdin, output: process.stdout });
-        const prompt = `${user.username} Steam Guard${!event.domain ? ' App' : ''} Code: `;
-        rl.question(prompt, (code) => {
-          rl.close();
-          event.callback(code);
-          resume(Effect.void);
-        });
-      });
+      return;
     }
+
+    yield* Effect.async<void>((resume) => {
+      const rl = createInterface({ input: process.stdin, output: process.stdout });
+      const prompt = `${user.username} Steam Guard${!event.domain ? ' App' : ''} Code: `;
+
+      rl.question(prompt, (code) => {
+        rl.close();
+        event.callback(code);
+        resume(Effect.void);
+      });
+    });
   });
 
 const handleRateLimit = (user: UserContext) =>
@@ -105,22 +111,26 @@ export const handleError = (user: UserContext, error: Error & { eresult?: number
     yield* Effect.logError(chalk`{red ${user.username} disconnected}`, error);
 
     switch (error.eresult) {
-      case SteamUser.EResult.RateLimitExceeded:
+      case SteamUser.EResult.RateLimitExceeded: {
         yield* handleRateLimit(user);
         break;
+      }
       case SteamUser.EResult.LoggedInElsewhere:
       case SteamUser.EResult.LogonSessionReplaced:
-      case SteamUser.EResult.AlreadyLoggedInElsewhere:
+      case SteamUser.EResult.AlreadyLoggedInElsewhere: {
         yield* handleLoggedInElsewhere(user);
         break;
+      }
       case SteamUser.EResult.AccessDenied:
-      case SteamUser.EResult.InvalidPassword:
+      case SteamUser.EResult.InvalidPassword: {
         yield* handleInvalidCredentials(user);
         break;
+      }
       case SteamUser.EResult.NoConnection:
-      case SteamUser.EResult.ServiceUnavailable:
+      case SteamUser.EResult.ServiceUnavailable: {
         yield* waitForConnection();
         break;
+      }
     }
 
     yield* Effect.logInfo(chalk`{yellow ${user.username} session ended, restarting...}`);
@@ -161,11 +171,15 @@ export const handleUserUpdate = (
     const isSelf = selfId === userId || user.id === userId;
     const currentPersona = family[userId];
 
-    if (isSelf || typeof currentPersona !== 'number') return;
+    if (isSelf || typeof currentPersona !== 'number') {
+      return;
+    }
 
     const personaState = event.user.persona_state;
     // Skip if no valid update and not first time
-    if (currentPersona !== -1 && personaState === null) return;
+    if (currentPersona !== -1 && personaState === null) {
+      return;
+    }
 
     const userPersona = personaState ?? SteamUser.EPersonaState.Offline;
     const isUserOffline = USER_OFFLINE_STATE.includes(userPersona);
@@ -185,20 +199,21 @@ export const handleSteamEvent = (event: SteamEvent, user: UserContext, steamClie
   Effect.gen(function* () {
     const configStore = yield* ConfigStoreTag;
 
-    const handlers: {
-      [K in SteamEvent['type']]: (event: Extract<SteamEvent, { type: K }>) => Effect.Effect<any, any, any>;
-    } = {
-      loggedOn: () => handleLoggedOn(user, steamClient, state),
-      refreshToken: (e) =>
-        configStore.update((cfg) => ({
+    switch (event.type) {
+      case 'loggedOn':
+        return yield* handleLoggedOn(user, steamClient, state);
+      case 'refreshToken':
+        return yield* configStore.update((cfg) => ({
           ...cfg,
-          users: cfg.users.map((u) => (u.username === user.username ? { ...u, refreshToken: e.token } : u)),
-        })),
-      steamGuard: (e) => handleSteamGuard(user, e),
-      error: (e) => handleError(user, e.error, state),
-      vacBans: (e) => handleVacBans(user, e),
-      user: (e) => handleUserUpdate(user, e, steamClient, state),
-    };
-
-    return yield* handlers[event.type](event as any);
+          users: cfg.users.map((u) => (u.username === user.username ? { ...u, refreshToken: event.token } : u)),
+        }));
+      case 'steamGuard':
+        return yield* handleSteamGuard(user, event);
+      case 'error':
+        return yield* handleError(user, event.error, state);
+      case 'vacBans':
+        return yield* handleVacBans(user, event);
+      case 'user':
+        return yield* handleUserUpdate(user, event, steamClient, state);
+    }
   });

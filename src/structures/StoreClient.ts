@@ -4,7 +4,11 @@ import { parseJsonc } from '@vegapunk/utilities';
 import { defaultsDeep } from '@vegapunk/utilities/common';
 import { Context, Data, Effect, Layer, Ref, Schedule, Schema } from 'effect';
 
-const ensureDir = (path: string) => Effect.tryPromise(() => mkdir(dirname(path), { recursive: true }));
+const ensureDir = (path: string): Effect.Effect<void, StoreClientError> =>
+  Effect.tryPromise({
+    try: () => mkdir(dirname(path), { recursive: true }),
+    catch: (error) => new StoreClientError({ message: `Failed to ensure directory: ${dirname(path)}`, cause: error }),
+  }).pipe(Effect.asVoid);
 
 export class StoreClientError extends Data.TaggedError('StoreClientError')<{
   readonly message: string;
@@ -19,7 +23,10 @@ export interface StoreClient<T> {
 }
 
 const loadStore = <A>(filePath: string, initialData: A) =>
-  Effect.tryPromise(() => readFile(filePath, 'utf-8')).pipe(
+  Effect.tryPromise({
+    try: () => readFile(filePath, 'utf-8'),
+    catch: (error) => error,
+  }).pipe(
     Effect.flatMap((content) => Effect.sync(() => parseJsonc<A>(content))),
     Effect.map((data) => defaultsDeep({}, data, initialData)),
     Effect.catchAll((error) => {
@@ -31,6 +38,7 @@ const loadStore = <A>(filePath: string, initialData: A) =>
           Effect.mapError((error) => new StoreClientError({ message: `Failed to initialize store: ${filePath}`, cause: error })),
         );
       }
+
       return Effect.fail(
         error instanceof StoreClientError ? error : new StoreClientError({ message: `Failed to load store: ${filePath}`, cause: error }),
       );
