@@ -1,12 +1,12 @@
 import 'dotenv/config';
 
 import { join } from 'node:path';
-import { Effect, Logger } from 'effect';
+import { Effect, Layer, Logger } from 'effect';
 
 import { ConfigContext, ConfigStoreTag, INITIAL_CONFIG, RegistrationSemaphore } from './core/schemas';
 import { HttpClientLayer } from './structures/HttpClient';
-import { createLogger, LoggerClientLayer } from './structures/LoggerClient';
-import { cycleMidnightRestart, cycleWithRestart, runForkWithCleanUp } from './structures/RuntimeClient';
+import { LoggerClientLayer, makeLoggerClient } from './structures/LoggerClient';
+import { cycleMidnightRestart, runMain } from './structures/RuntimeClient';
 import { StoreClientLayer } from './structures/StoreClient';
 import { runUserWorkflow } from './workflows/UserWorkflow';
 
@@ -28,13 +28,15 @@ const program = Effect.gen(function* () {
   }).pipe(Effect.provideService(RegistrationSemaphore, registrationSemaphore));
 });
 
-const logger = createLogger({ exception: false, rejection: false });
+const logger = makeLoggerClient({ exception: false, rejection: false });
 const configPath = join(process.cwd(), 'sessions', 'settings.json');
 
-runForkWithCleanUp(
-  cycleWithRestart(program).pipe(
-    Effect.provide(LoggerClientLayer(Logger.defaultLogger, logger)),
-    Effect.provide(StoreClientLayer(ConfigStoreTag, configPath, ConfigContext, INITIAL_CONFIG, 60_000)),
-    Effect.provide(HttpClientLayer),
-  ),
+const BaseLayer = Layer.mergeAll(
+  HttpClientLayer,
+  StoreClientLayer(ConfigStoreTag, configPath, ConfigContext, INITIAL_CONFIG, 60_000),
+  LoggerClientLayer(Logger.defaultLogger, logger),
 );
+
+runMain(program, {
+  runtimeBaseLayer: BaseLayer,
+});
