@@ -45,6 +45,10 @@ export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, stat
     const config = yield* configStore.get;
     yield* sessionStore.setDelay(config.refreshGames);
 
+    if (user.family && user.family.length > 0) {
+      yield* Effect.promise(() => steamClient.user.getPersonas(user.family as string[]));
+    }
+
     yield* collectOwnGames(user);
 
     const sessionData = yield* sessionStore.get;
