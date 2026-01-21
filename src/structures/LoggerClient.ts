@@ -54,7 +54,7 @@ export const makeLoggerClient = (options: LoggerOptions = {}): pino.Logger => {
       level: 'warn',
       stream: pino.destination({
         mkdir: true,
-        dest: `${dir}/errors.log`,
+        dest: join(dir, 'errors.log'),
       }),
     },
     ...(trace
@@ -63,7 +63,7 @@ export const makeLoggerClient = (options: LoggerOptions = {}): pino.Logger => {
             level: 'trace' as const,
             stream: pino.destination({
               mkdir: true,
-              dest: `${dir}/traces.log`,
+              dest: join(dir, 'traces.log'),
             }),
           },
         ]

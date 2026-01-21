@@ -6,7 +6,7 @@ import { Effect, Layer, Logger } from 'effect';
 import { ConfigContext, ConfigStoreTag, INITIAL_CONFIG, RegistrationSemaphore } from './core/schemas';
 import { HttpClientLayer } from './structures/HttpClient';
 import { LoggerClientLayer, makeLoggerClient } from './structures/LoggerClient';
-import { cycleMidnightRestart, runMain } from './structures/RuntimeClient';
+import { cycleUntilMidnight, runMainCycle } from './structures/RuntimeClient';
 import { StoreClientLayer } from './structures/StoreClient';
 import { runUserWorkflow } from './workflows/UserWorkflow';
 
@@ -23,12 +23,12 @@ const program = Effect.gen(function* () {
 
   const registrationSemaphore = yield* Effect.makeSemaphore(1);
 
-  yield* Effect.all([...config.users.map((user) => runUserWorkflow(user)), cycleMidnightRestart], {
+  yield* Effect.all([...config.users.map((user) => runUserWorkflow(user)), cycleUntilMidnight], {
     concurrency: 'unbounded',
   }).pipe(Effect.provideService(RegistrationSemaphore, registrationSemaphore));
 });
 
-const logger = makeLoggerClient({ exception: false, rejection: false });
+const logger = makeLoggerClient();
 const configPath = join(process.cwd(), 'sessions', 'settings.json');
 
 const BaseLayer = Layer.mergeAll(
@@ -37,6 +37,4 @@ const BaseLayer = Layer.mergeAll(
   LoggerClientLayer(Logger.defaultLogger, logger),
 );
 
-runMain(program, {
-  runtimeBaseLayer: BaseLayer,
-});
+runMainCycle(program.pipe(Effect.provide(BaseLayer)));

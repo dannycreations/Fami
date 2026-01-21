@@ -16,7 +16,7 @@ export class StoreClientError extends Data.TaggedError('StoreClientError')<{
   readonly cause?: unknown;
 }> {}
 
-export interface StoreClient<T> {
+export interface StoreClient<in out T> {
   readonly get: Effect.Effect<T>;
   readonly set: (data: Partial<T>) => Effect.Effect<void>;
   readonly update: (f: (data: T) => T) => Effect.Effect<void>;
@@ -89,38 +89,42 @@ export const makeStoreClient = <A extends object, I, R>(
           const partialDecode = Schema.decodeUnknown(Schema.partial(schema));
           const partial = yield* partialDecode(rawData).pipe(Effect.catchAll(() => Effect.succeed({})));
 
-          return defaultsDeep({}, partial, initialData) as A;
+          return defaultsDeep<A>({}, partial, initialData);
         }),
       ),
     );
 
     yield* Ref.set(dataRef, validatedData);
 
-    const save = Ref.getAndSet(dirtyRef, false).pipe(
-      Effect.flatMap((isDirty) =>
-        isDirty
-          ? Ref.get(dataRef).pipe(
-              Effect.flatMap((data) => saveStore(filePath, schema, data)),
-              Effect.catchAll((error) => Effect.zipRight(Ref.set(dirtyRef, true), Effect.logError(`Store auto-save failed for ${filePath}`, error))),
-            )
-          : Effect.void,
-      ),
+    const save = Effect.gen(function* () {
+      const isDirty = yield* Ref.getAndSet(dirtyRef, false);
+      if (!isDirty) return;
+
+      const data = yield* Ref.get(dataRef);
+      yield* saveStore(filePath, schema, data).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* Ref.set(dirtyRef, true);
+            yield* Effect.logError(`Store auto-save failed for ${filePath}`, error);
+          }),
+        ),
+      );
+    });
+
+    yield* Effect.forkScoped(
+      Effect.gen(function* () {
+        const delay = yield* Ref.get(delayRef);
+        yield* Effect.sleep(`${Math.max(1000, delay)} millis`);
+        yield* save;
+      }).pipe(Effect.repeat(Schedule.forever)),
     );
 
-    const autoSaveLoop = Effect.gen(function* () {
-      const delay = yield* Ref.get(delayRef);
-      yield* Effect.sleep(`${Math.max(1000, delay)} millis`);
-      yield* save;
-    }).pipe(Effect.repeat(Schedule.forever));
-
-    yield* Effect.fork(autoSaveLoop);
-
-    yield* Effect.addFinalizer(() => save.pipe(Effect.catchAllCause(() => Effect.void)));
+    yield* Effect.addFinalizer(() => save.pipe(Effect.ignore));
 
     return {
       get: Ref.get(dataRef),
-      set: (partial: Partial<A>) => Ref.update(dataRef, (current) => ({ ...current, ...partial })).pipe(Effect.zipRight(Ref.set(dirtyRef, true))),
-      update: (f: (data: A) => A) => Ref.update(dataRef, f).pipe(Effect.zipRight(Ref.set(dirtyRef, true))),
+      set: (partial: Partial<A>) => Ref.update(dataRef, (current) => ({ ...current, ...partial })).pipe(Effect.andThen(Ref.set(dirtyRef, true))),
+      update: (f: (data: A) => A) => Ref.update(dataRef, f).pipe(Effect.andThen(Ref.set(dirtyRef, true))),
       setDelay: (delayMs: number) => Ref.set(delayRef, Math.max(1000, delayMs)),
     } satisfies StoreClient<A>;
   });

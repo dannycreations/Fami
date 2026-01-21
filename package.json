@@ -9,7 +9,7 @@
     "start:watch": "npm run clean && tsx watch src/main.ts",
     "start:debug": "npm run build && node --inspect-brk .",
     "build": "npm run clean && tsc",
-    "check": "tsc --noEmit",
+    "check": "npm run format && tsc --noEmit",
     "format": "prettier --write .",
     "clean": "rimraf -g \"*.tsbuildinfo\" \"dist\"",
     "clean:node": "rimraf -g \"*-lock*\" \"node_modules\"",

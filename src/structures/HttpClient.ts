@@ -1,7 +1,7 @@
 import { lookup } from 'node:dns/promises';
 import { defaultsDeep } from '@vegapunk/utilities/common';
 import { isErrorLike } from '@vegapunk/utilities/result';
-import { Context, Data, Effect, Either, Layer, Schedule } from 'effect';
+import { Context, Data, Effect, Layer, Schedule } from 'effect';
 import got, { RequestError } from 'got';
 import UserAgent from 'user-agents';
 
@@ -14,7 +14,7 @@ export class HttpClientError extends Data.TaggedError('HttpClientError')<{
   readonly cause?: unknown;
 }> {}
 
-export const ERROR_CODES: readonly string[] = [
+export const ERROR_CODES: ReadonlyArray<string> = [
   'EADDRINUSE',
   'EAI_AGAIN',
   'ECONNREFUSED',
@@ -28,7 +28,7 @@ export const ERROR_CODES: readonly string[] = [
   'UND_ERR_CONNECT_TIMEOUT',
 ];
 
-export const ERROR_STATUS_CODES: readonly number[] = [408, 413, 429, 500, 502, 503, 504, 521, 522, 524];
+export const ERROR_STATUS_CODES: ReadonlyArray<number> = [408, 413, 429, 500, 502, 503, 504, 521, 522, 524];
 
 export interface DefaultOptions extends Omit<Options, 'prefixUrl' | 'retry' | 'timeout' | 'resolveBodyOnly'> {
   readonly retry?: number;
@@ -41,7 +41,7 @@ export interface DefaultOptions extends Omit<Options, 'prefixUrl' | 'retry' | 't
 
 export interface HttpClient {
   readonly request: <T = string>(options: string | DefaultOptions) => Effect.Effect<Response<T>, HttpClientError>;
-  readonly waitForConnection: (total?: number) => Effect.Effect<void, never>;
+  readonly waitForConnection: (total?: number) => Effect.Effect<void>;
 }
 
 export class HttpClientTag extends Context.Tag('@structures/HttpClient')<HttpClientTag, HttpClient>() {}
@@ -55,7 +55,7 @@ export const request = <T = string>(options: string | DefaultOptions): Effect.Ef
 export const waitForConnection = (total?: number): Effect.Effect<void, never, HttpClientTag> =>
   Effect.flatMap(HttpClientTag, (service) => service.waitForConnection(total));
 
-const makeHttpClient = Effect.sync(() => {
+const makeHttpClient = Effect.gen(function* () {
   const gotInstance: Got = got.bind(got);
   const userAgent = new UserAgent({ deviceCategory: 'desktop' });
 
@@ -112,7 +112,6 @@ const makeHttpClient = Effect.sync(() => {
       }).pipe(
         Effect.retry({
           while: (error) => {
-            if (!(error instanceof HttpClientError)) return false;
             const isNetworkError = !!error.code && ERROR_CODES.includes(error.code);
             const isRetryableStatus = !!error.status && ERROR_STATUS_CODES.includes(error.status);
             return isNetworkError || isRetryableStatus || isErrorTimeout(error);
@@ -122,7 +121,7 @@ const makeHttpClient = Effect.sync(() => {
       );
     });
 
-  const waitForConnectionFn = (total?: number): Effect.Effect<void, never> => {
+  const waitForConnectionFn = (total?: number): Effect.Effect<void> => {
     const retryMs = total ?? 10_000;
 
     const checkGoogle = Effect.tryPromise({
@@ -132,23 +131,17 @@ const makeHttpClient = Effect.sync(() => {
           message: 'DNS lookup failed',
           cause,
         }),
-    }).pipe(Effect.asVoid, Effect.either);
+    }).pipe(Effect.ignore);
 
     const checkApple = requestFn({
       url: 'https://captive.apple.com/hotspot-detect.html',
       headers: { 'user-agent': 'CaptiveNetworkSupport/1.0 wispr' },
       timeout: { total: retryMs },
-    }).pipe(Effect.asVoid, Effect.either);
+    }).pipe(Effect.ignore);
 
     return Effect.race(checkGoogle, checkApple).pipe(
-      Effect.flatMap(
-        Either.match({
-          onLeft: (error) => Effect.fail(error),
-          onRight: () => Effect.void,
-        }),
-      ),
-      Effect.retry(Schedule.spaced(`${retryMs} millis`)),
-      Effect.catchAll(() => waitForConnectionFn(total)),
+      Effect.retry(Schedule.intersect(Schedule.forever, Schedule.spaced(`${retryMs} millis`))),
+      Effect.ignore,
     );
   };
 
