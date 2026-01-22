@@ -8,6 +8,7 @@ export const GameContext = Schema.Struct({
   name: Schema.String,
   appId: Schema.Number,
 });
+
 export type GameContext = Schema.Schema.Type<typeof GameContext>;
 
 export const PreferenceSchema = Schema.Struct({
@@ -16,6 +17,7 @@ export const PreferenceSchema = Schema.Struct({
   blacklistGameIds: Schema.optional(Schema.Array(Schema.Number)),
   family: Schema.optional(Schema.Array(Schema.String)),
 });
+
 export type PreferenceSchema = Schema.Schema.Type<typeof PreferenceSchema>;
 
 export const UserContext = Schema.Struct({
@@ -26,6 +28,7 @@ export const UserContext = Schema.Struct({
   refreshToken: Schema.optional(Schema.String),
   ...PreferenceSchema.fields,
 });
+
 export type UserContext = Schema.Schema.Type<typeof UserContext>;
 
 export const ConfigContext = Schema.Struct({
@@ -34,6 +37,7 @@ export const ConfigContext = Schema.Struct({
   ...PreferenceSchema.fields,
   users: Schema.Array(UserContext),
 });
+
 export type ConfigContext = Schema.Schema.Type<typeof ConfigContext>;
 
 export const INITIAL_CONFIG: ConfigContext = {
@@ -57,6 +61,7 @@ export const SessionContext = Schema.Struct({
   ownedGameList: Schema.Array(GameContext),
   bannedGameIds: Schema.Array(Schema.Number),
 });
+
 export type SessionContext = Schema.Schema.Type<typeof SessionContext>;
 
 export const INITIAL_SESSION: SessionContext = {
@@ -75,4 +80,5 @@ export const UserStatus = Schema.Struct({
   persona_state: Schema.NullOr(Schema.Number),
   player_name: Schema.NullOr(Schema.String),
 });
+
 export type UserStatus = Schema.Schema.Type<typeof UserStatus>;

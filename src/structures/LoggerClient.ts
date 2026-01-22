@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { isErrorLike } from '@vegapunk/utilities/result';
-import { Cause, Layer, Logger, LogLevel, Schema } from 'effect';
+import { Array, Cause, Layer, Logger, LogLevel, Schema } from 'effect';
 import pino from 'pino';
 import pinoPretty from 'pino-pretty';
 

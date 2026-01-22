@@ -1,7 +1,7 @@
 import { lookup } from 'node:dns/promises';
 import { defaultsDeep } from '@vegapunk/utilities/common';
 import { isErrorLike } from '@vegapunk/utilities/result';
-import { Context, Data, Effect, Layer, Schedule } from 'effect';
+import { Array, Context, Data, Effect, Layer, Schedule } from 'effect';
 import got, { RequestError } from 'got';
 import UserAgent from 'user-agents';
 
@@ -47,7 +47,8 @@ export interface HttpClient {
 export class HttpClientTag extends Context.Tag('@structures/HttpClient')<HttpClientTag, HttpClient>() {}
 
 export const isErrorTimeout = (error: unknown): boolean =>
-  isErrorLike<{ readonly _tag: string; readonly code?: string }>(error) && (error._tag === 'TimeoutException' || error.code === 'ETIMEDOUT');
+  (isErrorLike<{ readonly _tag: string }>(error) && error._tag === 'TimeoutException') ||
+  (isErrorLike<{ readonly code?: string }>(error) && error.code === 'ETIMEDOUT');
 
 export const request = <T = string>(options: string | DefaultOptions): Effect.Effect<Response<T>, HttpClientError, HttpClientTag> =>
   Effect.flatMap(HttpClientTag, (service) => service.request<T>(options));
@@ -112,8 +113,8 @@ const makeHttpClient = Effect.gen(function* () {
       }).pipe(
         Effect.retry({
           while: (error) => {
-            const isNetworkError = !!error.code && ERROR_CODES.includes(error.code);
-            const isRetryableStatus = !!error.status && ERROR_STATUS_CODES.includes(error.status);
+            const isNetworkError = !!error.code && Array.contains(ERROR_CODES, error.code);
+            const isRetryableStatus = !!error.status && Array.contains(ERROR_STATUS_CODES, error.status);
             return isNetworkError || isRetryableStatus || isErrorTimeout(error);
           },
           schedule: retryCount < 0 ? Schedule.forever : Schedule.recurs(retryCount),

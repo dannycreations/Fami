@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { chalk } from '@vegapunk/utilities';
-import { Deferred, Effect, Ref, Schedule, Stream } from 'effect';
+import { Array, Deferred, Effect, Ref, Schedule, Stream } from 'effect';
 import SteamUser from 'steam-user';
 
 import { AuthError } from '../core/errors';
@@ -49,8 +49,7 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
     const idleLoop = checkLoggedOn(
       Effect.gen(function* () {
         const { isPlaying, family } = yield* Ref.get(state.state);
-        // Treat -1 (unknown) as online to prevent race conditions during startup
-        const hasFamilyOnline = Object.values(family).some((s) => !USER_OFFLINE_STATE.includes(s));
+        const hasFamilyOnline = Object.values(family).some((s) => !Array.contains(USER_OFFLINE_STATE, s));
 
         if (hasFamilyOnline) {
           yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false }));
@@ -59,14 +58,18 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
           if (steamId) {
             const communityUser = yield* steamClient.getCommunityUser(steamId);
             if (communityUser && typeof communityUser.onlineState === 'string') {
-              yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: communityUser.onlineState === 'offline' }));
+              yield* Ref.update(state.state, (s) => ({
+                ...s,
+                isEnabled: communityUser.onlineState === 'offline',
+              }));
             }
           }
         }
 
         const currentState = yield* Ref.get(state.state);
+        const now = yield* Effect.clock.pipe(Effect.flatMap((clock) => clock.currentTimeMillis));
         if (currentState.isEnabled) {
-          if (Date.now() > (yield* Ref.get(nextIdleTimeRef))) {
+          if (now > (yield* Ref.get(nextIdleTimeRef))) {
             const nextTime = yield* startIdleGames(user.username);
             yield* Ref.set(nextIdleTimeRef, nextTime);
             yield* Ref.update(state.state, (s) => ({ ...s, isPlaying: true }));
@@ -89,7 +92,10 @@ const tryLogin = (user: UserContext, steamClient: SteamClient) =>
     const loginDetails = user.refreshToken
       ? ({ refreshToken: user.refreshToken } satisfies SteamUser.LogOnDetailsRefresh)
       : user.password
-        ? ({ accountName: user.username, password: user.password } satisfies SteamUser.LogOnDetailsNamePass)
+        ? ({
+            accountName: user.username,
+            password: user.password,
+          } satisfies SteamUser.LogOnDetailsNamePass)
         : null;
 
     if (!loginDetails) {
@@ -108,7 +114,7 @@ const createUserSession = (user: UserContext) =>
     const stateRef = yield* Ref.make({
       isEnabled: false,
       isPlaying: false,
-      family: Object.fromEntries((user.family ?? []).map((r: string) => [r, -1])),
+      family: Object.fromEntries(Array.map(user.family ?? [], (r) => [r, -1])),
     });
 
     const state: UserWorkflowState = {
@@ -154,7 +160,6 @@ export const runUserWorkflow = (user: UserContext) =>
     yield* createUserSession(user).pipe(
       Effect.provide(SteamClientLayer(sessionDir)),
       Effect.provide(StoreClientLayer(SessionStore, sessionPath, SessionContext, INITIAL_SESSION, 600_000)),
-      Effect.scoped,
       Effect.retry(
         Schedule.spaced('10 seconds').pipe(Schedule.tapInput(() => Effect.logInfo(chalk`{yellow Retrying workflow for ${user.username}...}`))),
       ),

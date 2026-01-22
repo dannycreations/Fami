@@ -1,6 +1,6 @@
 import { createInterface } from 'node:readline';
 import { chalk } from '@vegapunk/utilities';
-import { Deferred, Effect, Ref } from 'effect';
+import { Array, Deferred, Effect, Ref } from 'effect';
 import SteamTotp from 'steam-totp';
 import SteamUser from 'steam-user';
 
@@ -20,7 +20,7 @@ export interface InternalState {
 }
 
 export interface UserWorkflowState {
-  readonly loggedOn: Deferred.Deferred<void>;
+  readonly loggedOn: Deferred.Deferred<void, never>;
   readonly state: Ref.Ref<InternalState>;
   readonly setGamesPlayed: (appIds: number[]) => Effect.Effect<void>;
   readonly reset: () => Effect.Effect<void>;
@@ -39,14 +39,14 @@ export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, stat
 
     yield* configStore.update((cfg) => ({
       ...cfg,
-      users: cfg.users.map((u) => (u.username === user.username ? { ...u, id: steamIdString } : u)),
+      users: Array.map(cfg.users, (u) => (u.username === user.username ? { ...u, id: steamIdString } : u)),
     }));
 
     const config = yield* configStore.get;
     yield* sessionStore.setDelay(config.refreshGames);
 
     if (user.family && user.family.length > 0) {
-      yield* Effect.promise(() => steamClient.user.getPersonas(user.family as string[]));
+      yield* Effect.promise(() => steamClient.user.getPersonas([...user.family!]));
     }
 
     yield* collectOwnGames(user);
@@ -56,7 +56,7 @@ export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, stat
     yield* Deferred.succeed(state.loggedOn, undefined);
   });
 
-export const handleSteamGuard = (user: UserContext, event: Extract<SteamEvent, { type: 'steamGuard' }>) =>
+export const handleSteamGuard = (user: UserContext, event: Extract<SteamEvent, { _tag: 'SteamGuard' }>) =>
   Effect.gen(function* () {
     if (event.lastCodeWrong) {
       yield* Effect.logInfo(`${user.username} Steam Guard wrong`);
@@ -105,7 +105,7 @@ const handleInvalidCredentials = (user: UserContext) =>
     yield* Effect.logError(`${user.username} Invalid credentials/token. Clearing refresh token.`);
     yield* configStore.update((cfg) => ({
       ...cfg,
-      users: cfg.users.map((u) => (u.username === user.username ? { ...u, refreshToken: undefined } : u)),
+      users: Array.map(cfg.users, (u) => (u.username === user.username ? { ...u, refreshToken: undefined } : u)),
     }));
   });
 
@@ -141,7 +141,7 @@ export const handleError = (user: UserContext, error: Error & { eresult?: number
     yield* Effect.fail(error);
   });
 
-export const handleVacBans = (user: UserContext, event: Extract<SteamEvent, { type: 'vacBans' }>) =>
+export const handleVacBans = (user: UserContext, event: Extract<SteamEvent, { _tag: 'VacBans' }>) =>
   Effect.gen(function* () {
     const configStore = yield* ConfigStoreTag;
     const sessionStore = yield* SessionStore;
@@ -162,7 +162,7 @@ export const handleVacBans = (user: UserContext, event: Extract<SteamEvent, { ty
 
 export const handleUserUpdate = (
   user: UserContext,
-  event: Extract<SteamEvent, { type: 'user' }>,
+  event: Extract<SteamEvent, { _tag: 'User' }>,
   steamClient: SteamClient,
   state: UserWorkflowState,
 ) =>
@@ -180,13 +180,12 @@ export const handleUserUpdate = (
     }
 
     const personaState = event.user.persona_state;
-    // Skip if no valid update and not first time
     if (currentPersona !== -1 && personaState === null) {
       return;
     }
 
     const userPersona = personaState ?? SteamUser.EPersonaState.Offline;
-    const isUserOffline = USER_OFFLINE_STATE.includes(userPersona);
+    const isUserOffline = Array.contains(USER_OFFLINE_STATE, userPersona);
 
     yield* Ref.update(state.state, (s) => ({ ...s, family: { ...s.family, [userId]: userPersona } }));
 
@@ -203,21 +202,21 @@ export const handleSteamEvent = (event: SteamEvent, user: UserContext, steamClie
   Effect.gen(function* () {
     const configStore = yield* ConfigStoreTag;
 
-    switch (event.type) {
-      case 'loggedOn':
+    switch (event._tag) {
+      case 'LoggedOn':
         return yield* handleLoggedOn(user, steamClient, state);
-      case 'refreshToken':
+      case 'RefreshToken':
         return yield* configStore.update((cfg) => ({
           ...cfg,
-          users: cfg.users.map((u) => (u.username === user.username ? { ...u, refreshToken: event.token } : u)),
+          users: Array.map(cfg.users, (u) => (u.username === user.username ? { ...u, refreshToken: event.token } : u)),
         }));
-      case 'steamGuard':
+      case 'SteamGuard':
         return yield* handleSteamGuard(user, event);
-      case 'error':
+      case 'Error':
         return yield* handleError(user, event.error, state);
-      case 'vacBans':
+      case 'VacBans':
         return yield* handleVacBans(user, event);
-      case 'user':
+      case 'User':
         return yield* handleUserUpdate(user, event, steamClient, state);
     }
   });

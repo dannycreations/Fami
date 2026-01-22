@@ -1,6 +1,6 @@
 import { shuffle } from '@vegapunk/utilities/common';
 import { humanizeDuration } from '@vegapunk/utilities/time';
-import { Effect, Random } from 'effect';
+import { Array, Effect, Random } from 'effect';
 import SteamUser from 'steam-user';
 
 import { SessionStore } from '../core/schemas';
@@ -8,24 +8,26 @@ import { SteamClientTag } from '../services/SteamService';
 
 const MAX_IDLE_GAMES = 32;
 
-export const startIdleGames = (username: string) =>
+export const startIdleGames = (username: string): Effect.Effect<number, never, SteamClientTag | SessionStore> =>
   Effect.gen(function* () {
     const steamClient = yield* SteamClientTag;
     const sessionStore = yield* SessionStore;
     const sessionData = yield* sessionStore.get;
 
-    const idleMs = (yield* Random.nextIntBetween(60, 180)) * 60_000;
-    const nextIdleAt = Date.now() + idleMs;
+    const idleMinutes = yield* Random.nextIntBetween(60, 180);
+    const idleMs = idleMinutes * 60_000;
+    const now = yield* Effect.clock.pipe(Effect.flatMap((clock) => clock.currentTimeMillis));
+    const nextIdleAt = now + idleMs;
 
-    const allOwnedIds = sessionData.ownedGameList.map((game) => game.appId);
+    const allOwnedIds = Array.map(sessionData.ownedGameList, (game) => game.appId);
     const maxIdleTotal = Math.min(MAX_IDLE_GAMES, allOwnedIds.length);
 
     if (maxIdleTotal === 0) {
       return nextIdleAt;
     }
 
-    const shuffledIds = shuffle(allOwnedIds);
-    const idsToIdle = shuffledIds.slice(0, maxIdleTotal);
+    const shuffledIds = shuffle([...allOwnedIds]);
+    const idsToIdle = Array.take(shuffledIds, maxIdleTotal);
 
     yield* steamClient.setPersona(SteamUser.EPersonaState.Online);
     yield* steamClient.gamesPlayed(idsToIdle);

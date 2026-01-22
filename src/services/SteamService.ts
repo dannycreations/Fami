@@ -1,38 +1,39 @@
-import { Cause, Context, Duration, Effect, Layer, Stream } from 'effect';
+import { Cause, Context, Duration, Effect, Layer, Scope, Stream } from 'effect';
 import SteamUser from 'steam-user';
 import SteamCommunity from 'steamcommunity';
-import CSteamUser from 'steamcommunity/classes/CSteamUser';
 
 import { SteamError } from '../core/errors';
-import { UserStatus } from '../core/schemas';
+
+import type CSteamUser from 'steamcommunity/classes/CSteamUser';
+import type { UserStatus } from '../core/schemas';
 
 export type SteamEvent =
   | {
-      readonly type: 'loggedOn';
+      readonly _tag: 'LoggedOn';
     }
   | {
-      readonly type: 'error';
-      readonly error: Error & { eresult?: number };
+      readonly _tag: 'Error';
+      readonly error: Error & { readonly eresult?: number };
     }
   | {
-      readonly type: 'refreshToken';
+      readonly _tag: 'RefreshToken';
       readonly token: string;
     }
   | {
-      readonly type: 'steamGuard';
+      readonly _tag: 'SteamGuard';
       readonly domain: string | null;
       readonly callback: (code: string) => void;
       readonly lastCodeWrong: boolean;
     }
   | {
-      readonly type: 'user';
+      readonly _tag: 'User';
       readonly steamId: NonNullable<SteamUser['steamID']>;
       readonly user: UserStatus;
     }
   | {
-      readonly type: 'vacBans';
+      readonly _tag: 'VacBans';
       readonly numBans: number;
-      readonly appids: number[];
+      readonly appids: ReadonlyArray<number>;
     };
 
 export interface SteamClient {
@@ -43,35 +44,38 @@ export interface SteamClient {
   readonly logOn: (details: Parameters<SteamUser['logOn']>[0]) => Effect.Effect<void, SteamError | Cause.TimeoutException>;
   readonly logOff: Effect.Effect<void>;
   readonly setPersona: (state: SteamUser.EPersonaState) => Effect.Effect<void>;
-  readonly gamesPlayed: (appIds: number[]) => Effect.Effect<void>;
+  readonly gamesPlayed: (appIds: ReadonlyArray<number>) => Effect.Effect<void>;
   readonly getCommunityUser: (id: NonNullable<SteamUser['steamID']>) => Effect.Effect<CSteamUser | null>;
   readonly getUserOwnedApps: (
     id: NonNullable<SteamUser['steamID']>,
     options: SteamUser.GetUserOwnedAppsOptions,
   ) => Effect.Effect<SteamUser.UserOwnedApps, SteamError | Cause.TimeoutException>;
-  readonly getProductInfo: (apps: number[], packages: number[]) => Effect.Effect<SteamUser.ProductInfo, SteamError | Cause.TimeoutException>;
-  readonly requestFreeLicense: (appIDs: number[]) => Effect.Effect<void, SteamError | Cause.TimeoutException>;
-  readonly updatePersonaAndGames: (state: SteamUser.EPersonaState, appIds: number[]) => Effect.Effect<void>;
+  readonly getProductInfo: (
+    apps: ReadonlyArray<number>,
+    packages: ReadonlyArray<number>,
+  ) => Effect.Effect<SteamUser.ProductInfo, SteamError | Cause.TimeoutException>;
+  readonly requestFreeLicense: (appIDs: ReadonlyArray<number>) => Effect.Effect<void, SteamError | Cause.TimeoutException>;
+  readonly updatePersonaAndGames: (state: SteamUser.EPersonaState, appIds: ReadonlyArray<number>) => Effect.Effect<void>;
 }
 
-const createEventStream = (user: SteamUser, community: SteamCommunity) =>
+const createEventStream = (user: SteamUser, community: SteamCommunity): Stream.Stream<SteamEvent, never> =>
   Stream.async<SteamEvent>((emit) => {
     const onWebSession = (_sessionID: string, cookies: string[]) => community.setCookies(cookies);
-    const onLoggedOn = () => emit.single({ type: 'loggedOn' });
-    const onError = (error: Error & { eresult?: number }) => emit.single({ type: 'error', error });
-    const onRefreshToken = (token: string) => emit.single({ type: 'refreshToken', token });
+    const onLoggedOn = () => emit.single({ _tag: 'LoggedOn' });
+    const onError = (error: Error & { readonly eresult?: number }) => emit.single({ _tag: 'Error', error });
+    const onRefreshToken = (token: string) => emit.single({ _tag: 'RefreshToken', token });
     const onSteamGuard = (domain: string | null, callback: (code: string) => void, lastCodeWrong: boolean) =>
-      emit.single({ type: 'steamGuard', domain, callback, lastCodeWrong });
-    const onUser = (steamId: NonNullable<SteamUser['steamID']>, user: Record<string, any>) =>
+      emit.single({ _tag: 'SteamGuard', domain, callback, lastCodeWrong });
+    const onUser = (steamId: NonNullable<SteamUser['steamID']>, user: Record<string, unknown>) =>
       emit.single({
-        type: 'user',
+        _tag: 'User',
         steamId,
         user: {
           persona_state: (user?.persona_state as number | undefined) ?? null,
           player_name: (user?.player_name as string | undefined) ?? null,
         },
       });
-    const onVacBans = (numBans: number, appids: number[]) => emit.single({ type: 'vacBans', numBans, appids });
+    const onVacBans = (numBans: number, appids: number[]) => emit.single({ _tag: 'VacBans', numBans, appids });
 
     user.on('webSession', onWebSession);
     user.on('loggedOn', onLoggedOn);
@@ -92,11 +96,11 @@ const createEventStream = (user: SteamUser, community: SteamCommunity) =>
       user.removeListener('vacBans', onVacBans);
     });
   }).pipe(
-    Stream.tap((event) => Effect.annotateLogs(Effect.logTrace(`Steam Event: ${event.type}`), 'event', JSON.stringify(event))),
+    Stream.tap((event) => Effect.annotateLogs(Effect.logTrace(`Steam Event: ${event._tag}`), 'event', JSON.stringify(event))),
     Stream.tapError((error) => Effect.logError('Steam event stream error', error)),
   );
 
-const createSteamClient = (dataDirectory: string) =>
+const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, never, Scope.Scope> =>
   Effect.gen(function* () {
     const user = new SteamUser({
       dataDirectory,
@@ -115,12 +119,14 @@ const createSteamClient = (dataDirectory: string) =>
       }),
     );
 
-    const wrapPromise = <A>(promise: () => Promise<A>, timeout: Duration.DurationInput = '30 seconds') =>
+    const wrapPromise = <A>(
+      promise: () => Promise<A>,
+      timeout: Duration.DurationInput = '30 seconds',
+    ): Effect.Effect<A, SteamError | Cause.TimeoutException> =>
       Effect.tryPromise({
         try: promise,
         catch: (error) => {
-          const err = error as Error & { eresult?: number };
-          // Suppress internal "timed out" errors
+          const err = error as Error & { readonly eresult?: number };
           return err.message.toLowerCase().includes('timed out')
             ? new Cause.TimeoutException()
             : new SteamError({
@@ -136,7 +142,7 @@ const createSteamClient = (dataDirectory: string) =>
       community,
       events: createEventStream(user, community),
       steamID: Effect.sync(() => user.steamID),
-      logOn: (details: Parameters<SteamUser['logOn']>[0]) =>
+      logOn: (details) =>
         Effect.async<void, SteamError>((resume) => {
           const cleanup = () => {
             user.removeListener('loggedOn', onLoggedOn);
@@ -148,7 +154,7 @@ const createSteamClient = (dataDirectory: string) =>
             resume(Effect.void);
           };
 
-          const onError = (error: Error & { eresult?: number }) => {
+          const onError = (error: Error & { readonly eresult?: number }) => {
             cleanup();
             resume(
               Effect.fail(
@@ -168,9 +174,9 @@ const createSteamClient = (dataDirectory: string) =>
           return Effect.sync(cleanup);
         }).pipe(Effect.timeout('1 minute')),
       logOff: Effect.sync(() => user.logOff()),
-      setPersona: (state: SteamUser.EPersonaState) => Effect.sync(() => user.setPersona(state)),
-      gamesPlayed: (appIds: number[]) => Effect.sync(() => user.gamesPlayed(appIds)),
-      getCommunityUser: (id: NonNullable<SteamUser['steamID']>) =>
+      setPersona: (state) => Effect.sync(() => user.setPersona(state)),
+      gamesPlayed: (appIds) => Effect.sync(() => user.gamesPlayed([...appIds])),
+      getCommunityUser: (id) =>
         Effect.async<CSteamUser | null>((resume) => {
           community.getSteamUser(id, (error, user) => {
             resume(Effect.succeed(error ? null : user));
@@ -179,18 +185,18 @@ const createSteamClient = (dataDirectory: string) =>
           Effect.timeout('10 seconds'),
           Effect.catchTag('TimeoutException', () => Effect.succeed(null)),
         ),
-      getUserOwnedApps: (steamID: NonNullable<SteamUser['steamID']>, options: SteamUser.GetUserOwnedAppsOptions) =>
-        wrapPromise(() => user.getUserOwnedApps(steamID, options), '1 minute'),
-      getProductInfo: (apps: number[], packages: number[]) => wrapPromise(() => user.getProductInfo(apps, packages)),
-      requestFreeLicense: (appIDs: number[]) => wrapPromise(() => user.requestFreeLicense(appIDs)),
-      updatePersonaAndGames: (state: SteamUser.EPersonaState, appIds: number[]) =>
+      getUserOwnedApps: (steamID, options) => wrapPromise(() => user.getUserOwnedApps(steamID, options), '1 minute'),
+      getProductInfo: (apps, packages) => wrapPromise(() => user.getProductInfo([...apps], [...packages])),
+      requestFreeLicense: (appIDs) => wrapPromise(() => user.requestFreeLicense([...appIDs])),
+      updatePersonaAndGames: (state, appIds) =>
         Effect.sync(() => {
           user.setPersona(state);
-          user.gamesPlayed(appIds);
+          user.gamesPlayed([...appIds]);
         }),
-    };
+    } satisfies SteamClient;
   });
 
-export class SteamClientTag extends Context.Tag('@services/SteamLayer')<SteamClientTag, SteamClient>() {}
+export class SteamClientTag extends Context.Tag('@services/SteamClient')<SteamClientTag, SteamClient>() {}
 
-export const SteamClientLayer = (dataDirectory: string) => Layer.scoped(SteamClientTag, createSteamClient(dataDirectory));
+export const SteamClientLayer = (dataDirectory: string): Layer.Layer<SteamClientTag> =>
+  Layer.scoped(SteamClientTag, createSteamClient(dataDirectory));

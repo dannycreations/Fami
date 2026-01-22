@@ -12,22 +12,22 @@ export interface RuntimeBridge {
 
 export const makeRuntimeBridge = Effect.gen(function* () {
   const runtime = yield* Effect.runtime<unknown>();
-  const runFork = Runtime.runFork(runtime);
-  const runSync = Runtime.runSync(runtime);
-  const runPromise = Runtime.runPromise(runtime);
+  const _runFork = Runtime.runFork(runtime);
+  const _runSync = Runtime.runSync(runtime);
+  const _runPromise = Runtime.runPromise(runtime);
 
   return {
     runFork: (effect, options) =>
-      runFork(
+      _runFork(
         effect.pipe(
           Effect.catchAllCause((cause) =>
             Effect.logError(chalk`{bold.red Unhandled error in forked bridge${options?.name ? ` [${options.name}]` : ''}}`, cause),
           ),
         ),
       ),
-    runSync: (effect) => runSync(effect),
-    runPromise: (effect) => runPromise(effect),
-  } as RuntimeBridge;
+    runSync: (effect) => _runSync(effect),
+    runPromise: (effect) => _runPromise(effect),
+  } satisfies RuntimeBridge;
 });
 
 export interface RuntimeCycleOptions {
@@ -37,11 +37,14 @@ export interface RuntimeCycleOptions {
 }
 
 export const cycleUntilMidnight: Effect.Effect<never, RuntimeRestart> = Effect.gen(function* () {
-  const msUntilMidnight = yield* Effect.sync(() => {
-    const now = new Date();
-    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
-    return tomorrow.getTime() - now.getTime();
-  });
+  const msUntilMidnight = yield* Effect.clock.pipe(
+    Effect.flatMap((clock) => clock.currentTimeMillis),
+    Effect.map((nowMillis) => {
+      const now = new Date(nowMillis);
+      const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+      return tomorrow.getTime() - now.getTime();
+    }),
+  );
 
   yield* Effect.sleep(`${msUntilMidnight} millis`);
   yield* Effect.logInfo(chalk`{bold.yellow It's midnight time. Restarting app...}`);
@@ -67,7 +70,7 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
             return;
           }
 
-          const now = yield* Effect.sync(() => Date.now());
+          const now = yield* Effect.clock.pipe(Effect.flatMap((clock) => clock.currentTimeMillis));
           const restartTimes = yield* Ref.get(restartTimesRef);
           const nextRestarts = [...restartTimes.filter((t) => now - t < intervalMs), now];
 
@@ -87,7 +90,7 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
       Effect.ignore,
     );
 
-    const fiber = runFork(cycle);
+    const fiber = runFork(cycle, { name: 'MainCycle' });
 
     const cleanUp = () => {
       runPromise(Fiber.interrupt(fiber))

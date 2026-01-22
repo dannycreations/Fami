@@ -62,7 +62,11 @@ const saveStore = <A, I, R>(filePath: string, schema: Schema.Schema<A, I, R>, da
 
     yield* Effect.tryPromise({
       try: () => rename(tempPath, filePath),
-      catch: (cause) => new StoreClientError({ message: `Failed to rename store: ${tempPath} -> ${filePath}`, cause }),
+      catch: (cause) =>
+        new StoreClientError({
+          message: `Failed to rename store: ${tempPath} -> ${filePath}`,
+          cause,
+        }),
     });
   });
 
@@ -98,7 +102,9 @@ export const makeStoreClient = <A extends object, I, R>(
 
     const save = Effect.gen(function* () {
       const isDirty = yield* Ref.getAndSet(dirtyRef, false);
-      if (!isDirty) return;
+      if (!isDirty) {
+        return;
+      }
 
       const data = yield* Ref.get(dataRef);
       yield* saveStore(filePath, schema, data).pipe(
