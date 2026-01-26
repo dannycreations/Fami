@@ -12,21 +12,21 @@ export interface RuntimeBridge {
 
 export const makeRuntimeBridge = Effect.gen(function* () {
   const runtime = yield* Effect.runtime<unknown>();
-  const _runFork = Runtime.runFork(runtime);
-  const _runSync = Runtime.runSync(runtime);
-  const _runPromise = Runtime.runPromise(runtime);
+  const runFork = Runtime.runFork(runtime);
+  const runSync = Runtime.runSync(runtime);
+  const runPromise = Runtime.runPromise(runtime);
 
   return {
     runFork: (effect, options) =>
-      _runFork(
+      runFork(
         effect.pipe(
           Effect.catchAllCause((cause) =>
             Effect.logError(chalk`{bold.red Unhandled error in forked bridge${options?.name ? ` [${options.name}]` : ''}}`, cause),
           ),
         ),
       ),
-    runSync: (effect) => _runSync(effect),
-    runPromise: (effect) => _runPromise(effect),
+    runSync: (effect) => runSync(effect),
+    runPromise: (effect) => runPromise(effect),
   } satisfies RuntimeBridge;
 });
 
@@ -37,14 +37,11 @@ export interface RuntimeCycleOptions {
 }
 
 export const cycleUntilMidnight: Effect.Effect<never, RuntimeRestart> = Effect.gen(function* () {
-  const msUntilMidnight = yield* Effect.clock.pipe(
-    Effect.flatMap((clock) => clock.currentTimeMillis),
-    Effect.map((nowMillis) => {
-      const now = new Date(nowMillis);
-      const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
-      return tomorrow.getTime() - now.getTime();
-    }),
-  );
+  const msUntilMidnight = yield* Effect.sync(() => {
+    const now = new Date();
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    return tomorrow.getTime() - now.getTime();
+  });
 
   yield* Effect.sleep(`${msUntilMidnight} millis`);
   yield* Effect.logInfo(chalk`{bold.yellow It's midnight time. Restarting app...}`);
@@ -65,12 +62,13 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
         Effect.gen(function* () {
           const failures = Cause.failures(cause);
 
-          const isRestart = (error: unknown) => isErrorLike<{ readonly _tag: string }>(error) && error._tag === 'RuntimeRestart';
+          const isRestart = (error: unknown): error is RuntimeRestart =>
+            isErrorLike<{ readonly _tag: string }>(error) && error._tag === 'RuntimeRestart';
           if (Chunk.some(failures, isRestart)) {
             return;
           }
 
-          const now = yield* Effect.clock.pipe(Effect.flatMap((clock) => clock.currentTimeMillis));
+          const now = yield* Effect.sync(() => Date.now());
           const restartTimes = yield* Ref.get(restartTimesRef);
           const nextRestarts = [...restartTimes.filter((t) => now - t < intervalMs), now];
 
