@@ -139,7 +139,7 @@ export const handleError = (user: UserContext, error: Error & { eresult?: number
 
     yield* Effect.logInfo(chalk`{yellow ${user.username} session ended, restarting...}`);
     yield* Effect.fail(error);
-  });
+  }).pipe(Effect.asVoid);
 
 export const handleVacBans = (user: UserContext, event: Extract<SteamEvent, { _tag: 'VacBans' }>) =>
   Effect.gen(function* () {

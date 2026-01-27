@@ -1,4 +1,4 @@
-import { Cause, Context, Duration, Effect, Layer, Scope, Stream } from 'effect';
+import { Cause, Context, Duration, Effect, Layer, Schedule, Scope, Stream } from 'effect';
 import SteamUser from 'steam-user';
 import SteamCommunity from 'steamcommunity';
 
@@ -135,7 +135,15 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, ne
                 cause: error,
               });
         },
-      }).pipe(Effect.timeout(timeout));
+      }).pipe(
+        Effect.timeout(timeout),
+        Effect.retry(
+          Schedule.recurs(3).pipe(
+            Schedule.compose(Schedule.elapsed),
+            Schedule.whileInput((err) => Cause.isTimeoutException(err)),
+          ),
+        ),
+      );
 
     return {
       user,
