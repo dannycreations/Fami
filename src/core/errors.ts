@@ -14,7 +14,11 @@ export class SteamError extends Data.TaggedError('SteamError')<SteamBaseError> {
 
 export class AuthError extends Data.TaggedError('AuthError')<SteamBaseError> {}
 
-export const RetryTimeoutPolicy = Effect.retry(Schedule.recurs(3).pipe(Schedule.whileInput(isErrorTimeout)));
+export const RetryTimeoutPolicy = Effect.retry(
+  Schedule.recurs(3).pipe(
+    Schedule.whileInput((error) => isErrorTimeout(error) || (error instanceof SteamError && error.message.toLowerCase().includes('timed out'))),
+  ),
+);
 
 export const catchAndLogUnlessTimeout =
   <B>(prefix: string, defaultValue: B) =>
