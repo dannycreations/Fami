@@ -1,8 +1,9 @@
-import { Cause, Context, Duration, Effect, Layer, Schedule, Scope, Stream } from 'effect';
+import { Cause, Context, Duration, Effect, Layer, Scope, Stream } from 'effect';
 import SteamUser from 'steam-user';
 import SteamCommunity from 'steamcommunity';
 
-import { SteamError } from '../core/errors';
+import { RetryTimeoutPolicy, SteamError } from '../core/errors';
+import { isErrorTimeout } from '../structures/HttpClient';
 
 import type CSteamUser from 'steamcommunity/classes/CSteamUser';
 import type { UserStatus } from '../core/schemas';
@@ -96,7 +97,7 @@ const createEventStream = (user: SteamUser, community: SteamCommunity): Stream.S
       user.removeListener('vacBans', onVacBans);
     });
   }).pipe(
-    Stream.tap((event) => Effect.annotateLogs(Effect.logTrace(`Steam Event: ${event._tag}`), 'event', JSON.stringify(event))),
+    Stream.tap((event) => Effect.logTrace(`Steam Event: ${event._tag}`, event)),
     Stream.tapError((error) => Effect.logError('Steam event stream error', error)),
   );
 
@@ -127,7 +128,7 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, ne
         try: promise,
         catch: (error) => {
           const err = error as Error & { readonly eresult?: number };
-          return err.message.toLowerCase().includes('timed out')
+          return isErrorTimeout(err)
             ? new Cause.TimeoutException()
             : new SteamError({
                 message: err.message,
@@ -135,15 +136,7 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, ne
                 cause: error,
               });
         },
-      }).pipe(
-        Effect.timeout(timeout),
-        Effect.retry(
-          Schedule.recurs(3).pipe(
-            Schedule.compose(Schedule.elapsed),
-            Schedule.whileInput((err) => Cause.isTimeoutException(err)),
-          ),
-        ),
-      );
+      }).pipe(Effect.timeout(timeout), (effect) => Effect.retry(effect, RetryTimeoutPolicy));
 
     return {
       user,

@@ -19,12 +19,12 @@ export const RetryTimeoutPolicy = Effect.retry(Schedule.recurs(3).pipe(Schedule.
 export const catchAndLogUnlessTimeout =
   <B>(prefix: string, defaultValue: B) =>
   <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A | B, never, R> =>
-    Effect.catchAll(effect, (error) => {
-      if (isErrorTimeout(error)) {
+    Effect.catchAll(effect, (cause) => {
+      if (isErrorTimeout(cause)) {
         return Effect.succeed(defaultValue);
       }
 
-      const message = error instanceof Error ? error.message : String(error);
+      const message = cause instanceof Error ? cause.message : String(cause);
 
-      return Effect.logError(message, { cause: error }).pipe(Effect.annotateLogs('context', prefix), Effect.as(defaultValue));
+      return Effect.logError(message, { prefix, cause }).pipe(Effect.as(defaultValue));
     });

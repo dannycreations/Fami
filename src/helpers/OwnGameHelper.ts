@@ -1,7 +1,7 @@
 import { unionBy } from '@vegapunk/utilities/common';
 import { Array, Effect } from 'effect';
 
-import { catchAndLogUnlessTimeout, RetryTimeoutPolicy } from '../core/errors';
+import { catchAndLogUnlessTimeout } from '../core/errors';
 import { ConfigStoreTag, SessionStore, UserContext } from '../core/schemas';
 import { getFilteredGames, getUserPreferences } from '../core/utils';
 import { SteamClientTag } from '../services/SteamService';
@@ -30,7 +30,6 @@ export const collectOwnGames = (user: UserContext): Effect.Effect<void, never, S
     } satisfies SteamUser.GetUserOwnedAppsOptions;
 
     const apps = yield* steamClient.getUserOwnedApps(steamId, options).pipe(
-      RetryTimeoutPolicy,
       Effect.map((r) => r.apps),
       catchAndLogUnlessTimeout(`${user.username} OwnGame scanning failed`, []),
     );

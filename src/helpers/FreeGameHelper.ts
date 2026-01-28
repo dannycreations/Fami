@@ -55,7 +55,6 @@ export const registerFreeGames = (user: UserContext): Effect.Effect<void, never,
           }
         }),
       ),
-      RetryTimeoutPolicy,
       catchAndLogUnlessTimeout(`${user.username} FreeGame registration failed`, undefined),
     );
 
@@ -91,7 +90,7 @@ export const collectFreeGames = (
 
     const appIds = yield* fetchSearchPage(sessionData.lastPage).pipe(
       Effect.map(parseAppIdsFromHtml),
-      catchAndLogUnlessTimeout(`${user.username} FreeGame collection failed`, [] as readonly number[]),
+      catchAndLogUnlessTimeout(`${user.username} FreeGame collection failed`, []),
     );
 
     if (appIds.length > 0) {
