@@ -1,6 +1,6 @@
 import { createInterface } from 'node:readline';
 import { chalk } from '@vegapunk/utilities';
-import { Array, Cause, Deferred, Effect, Ref } from 'effect';
+import { Array, Deferred, Effect, Ref } from 'effect';
 import SteamTotp from 'steam-totp';
 import SteamUser from 'steam-user';
 
@@ -138,7 +138,7 @@ export const handleError = (user: UserContext, error: Error & { eresult?: number
     }
 
     yield* Effect.logInfo(chalk`{yellow ${user.username} session ended, restarting...}`);
-    yield* Effect.fail(Cause.fail(error));
+    yield* Effect.fail(error);
   });
 
 export const handleVacBans = (user: UserContext, event: Extract<SteamEvent, { _tag: 'VacBans' }>) =>

@@ -139,7 +139,19 @@ const createUserSession = (user: UserContext) =>
         }),
     };
 
-    const handleEvents = steamClient.events.pipe(Stream.runForEach((event) => handleSteamEvent(event, user, steamClient, state)));
+    // We use a manual pull loop instead of Stream.runForEach to bypass internal stream supervision.
+    // This fix "Fiber terminated with an unhandled error" problem until found better way to suppress.
+    const handleEvents = Effect.scoped(
+      steamClient.events.pipe(
+        Stream.toPull,
+        Effect.flatMap((pull) =>
+          pull.pipe(
+            Effect.flatMap((chunk) => Effect.forEach(chunk, (event) => handleSteamEvent(event, user, steamClient, state))),
+            Effect.repeat(Schedule.forever),
+          ),
+        ),
+      ),
+    );
 
     const watchdog = Deferred.await(state.loggedOn).pipe(
       Effect.zipRight(Effect.sleep('1 minute')),
@@ -147,11 +159,10 @@ const createUserSession = (user: UserContext) =>
       Effect.flatMap((s) =>
         Effect.gen(function* () {
           const hasFamilyOnline = Object.values(s.family).some((status) => !Array.contains(USER_OFFLINE_STATE, status));
-          if (!s.isPlaying && !hasFamilyOnline) {
+          if (s.isEnabled && !s.isPlaying && !hasFamilyOnline) {
             yield* Effect.logInfo(chalk`${user.username} not playing games after 1 minute of login`);
-            return Effect.fail(new Cause.TimeoutException());
+            return yield* Effect.fail(new Cause.TimeoutException());
           }
-          return Effect.void;
         }),
       ),
     );
