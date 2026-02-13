@@ -1,0 +1,9 @@
+echo "Running pre-push checks..."
+
+echo "Running Build..."
+npm run build || {
+  echo "❌ Please fix the errors and try committing again"
+  exit 1
+}
+
+echo "✅ All checks passed!"

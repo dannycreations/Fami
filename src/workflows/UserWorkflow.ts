@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { chalk } from '@vegapunk/utilities';
-import { Array, Deferred, Effect, Ref, Schedule, Stream } from 'effect';
+import { Array, Cause, Deferred, Effect, Ref, Schedule, Stream } from 'effect';
 import SteamUser from 'steam-user';
 
 import { AuthError } from '../core/errors';
@@ -141,12 +141,28 @@ const createUserSession = (user: UserContext) =>
 
     const handleEvents = steamClient.events.pipe(Stream.runForEach((event) => handleSteamEvent(event, user, steamClient, state)));
 
+    const watchdog = Deferred.await(state.loggedOn).pipe(
+      Effect.zipRight(Effect.sleep('1 minute')),
+      Effect.zipRight(Ref.get(state.state)),
+      Effect.flatMap((s) =>
+        Effect.gen(function* () {
+          const hasFamilyOnline = Object.values(s.family).some((status) => !Array.contains(USER_OFFLINE_STATE, status));
+          if (!s.isPlaying && !hasFamilyOnline) {
+            yield* Effect.logInfo(chalk`${user.username} not playing games after 1 minute of login`);
+            return Effect.fail(new Cause.TimeoutException());
+          }
+          return Effect.void;
+        }),
+      ),
+    );
+
     yield* Effect.all(
       [
         handleEvents,
         cycleCollector(user, state),
         cycleIdler(user, steamClient, state),
         tryLogin(user, steamClient).pipe(Effect.andThen(Effect.never)),
+        watchdog,
       ],
       { concurrency: 'unbounded' },
     );
