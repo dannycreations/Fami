@@ -2,8 +2,7 @@ import { Cause, Context, Duration, Effect, Layer, Scope, Stream } from 'effect';
 import SteamUser from 'steam-user';
 import SteamCommunity from 'steamcommunity';
 
-import { RetryTimeoutPolicy, SteamError } from '../core/errors';
-import { isErrorTimeout } from '../structures/HttpClient';
+import { isSteamErrorTimeout, RetryTimeoutPolicy, SteamError } from '../core/errors';
 
 import type CSteamUser from 'steamcommunity/classes/CSteamUser';
 import type { UserStatus } from '../core/schemas';
@@ -128,7 +127,7 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, ne
         try: promise,
         catch: (error) => {
           const err = error as Error & { readonly eresult?: number };
-          return isErrorTimeout(err)
+          return isSteamErrorTimeout(err)
             ? new Cause.TimeoutException()
             : new SteamError({
                 message: err.message,
@@ -136,7 +135,7 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, ne
                 cause: error,
               });
         },
-      }).pipe(Effect.timeout(timeout), (effect) => Effect.retry(effect, RetryTimeoutPolicy));
+      }).pipe(Effect.timeout(timeout), Effect.retry(RetryTimeoutPolicy));
 
     return {
       user,

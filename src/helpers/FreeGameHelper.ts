@@ -24,7 +24,7 @@ const fetchSearchPage = (page: number): Effect.Effect<string, FreeGameError, Htt
     retry: -1,
   }).pipe(
     Effect.mapError((cause) => new FreeGameError({ message: 'Failed to fetch HTML', cause })),
-    (effect) => Effect.retry(effect, RetryTimeoutPolicy),
+    Effect.retry(RetryTimeoutPolicy),
     Effect.map((res) => res.body),
   );
 

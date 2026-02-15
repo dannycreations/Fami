@@ -14,21 +14,19 @@ export class SteamError extends Data.TaggedError('SteamError')<SteamBaseError> {
 
 export class AuthError extends Data.TaggedError('AuthError')<SteamBaseError> {}
 
-export const RetryTimeoutPolicy = Effect.retry(
-  Schedule.recurs(3).pipe(
-    Schedule.whileInput((error) => isErrorTimeout(error) || (error instanceof SteamError && error.message.toLowerCase().includes('timed out'))),
-  ),
-);
+export const isSteamErrorTimeout = (error: unknown) =>
+  isErrorTimeout(error) || (error instanceof SteamError && error.message.toLowerCase().includes('timed out'));
+
+export const RetryTimeoutPolicy = Schedule.recurs(3).pipe(Schedule.whileInput(isSteamErrorTimeout));
 
 export const catchAndLogUnlessTimeout =
   <B>(prefix: string, defaultValue: B) =>
   <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A | B, never, R> =>
     Effect.catchAll(effect, (cause) => {
-      if (isErrorTimeout(cause)) {
+      if (isSteamErrorTimeout(cause)) {
         return Effect.succeed(defaultValue);
       }
 
       const message = cause instanceof Error ? cause.message : String(cause);
-
       return Effect.logError(message, { prefix, cause }).pipe(Effect.as(defaultValue));
     });
