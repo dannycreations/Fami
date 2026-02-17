@@ -47,8 +47,8 @@ export interface HttpClient {
 export class HttpClientTag extends Context.Tag('@structures/HttpClient')<HttpClientTag, HttpClient>() {}
 
 export const isErrorTimeout = (error: unknown): boolean =>
-  isErrorLike<{ readonly _tag: string; readonly code?: string; readonly message?: string }>(error) &&
-  (error._tag === 'TimeoutException' || error.code === 'ETIMEDOUT' || error.message?.toLowerCase().includes('timeout'));
+  isErrorLike<{ readonly _tag: string }>(error) &&
+  (error._tag === 'TimeoutException' || error.code === 'ETIMEDOUT' || error.message.toLowerCase().includes('timeout'));
 
 export const request = <T = string>(options: string | DefaultOptions): Effect.Effect<Response<T>, HttpClientError, HttpClientTag> =>
   Effect.flatMap(HttpClientTag, (service) => service.request<T>(options));

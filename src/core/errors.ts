@@ -1,3 +1,4 @@
+import { isErrorLike } from '@vegapunk/utilities/result';
 import { Data, Effect, Schedule } from 'effect';
 
 import { isErrorTimeout } from '../structures/HttpClient';
@@ -15,7 +16,7 @@ export class SteamError extends Data.TaggedError('SteamError')<SteamBaseError> {
 export class AuthError extends Data.TaggedError('AuthError')<SteamBaseError> {}
 
 export const isSteamErrorTimeout = (error: unknown) =>
-  isErrorTimeout(error) || (error instanceof SteamError && error.message.toLowerCase().includes('timed out'));
+  isErrorTimeout(error) || (isErrorLike(error) && error.message.toLowerCase().includes('timed out'));
 
 export const RetryTimeoutPolicy = Schedule.recurs(3).pipe(Schedule.whileInput(isSteamErrorTimeout));
 
