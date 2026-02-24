@@ -128,22 +128,23 @@ export const LoggerClientLayer = (self: Logger.Logger<unknown, void>, logger: pi
     Logger.replace(
       self,
       Logger.make(({ logLevel, message, cause }) => {
-        const level = EFFECT_LEVEL_MAP[logLevel._tag] ?? 'info';
-        const payload = Array.isArray(message) ? [...message] : [message];
+        // Ignore internal Effect errors
+        if (!Array.isArray(message)) return;
 
+        const level = EFFECT_LEVEL_MAP[logLevel._tag] ?? 'info';
         if (cause && !Cause.isEmptyType(cause)) {
           const [failure] = Cause.failures(cause);
           const causePretty = { cause: Cause.pretty(cause) };
 
           if (isErrorLike<{ readonly cause: unknown }>(failure) && failure.cause) {
-            payload.push({ ...(failure.cause as object), ...causePretty });
+            message.push({ ...failure.cause, ...causePretty });
           } else {
-            payload.push(causePretty);
+            message.push(causePretty);
           }
         }
 
         const logMethod = logger[level] as (...args: readonly unknown[]) => void;
-        logMethod.call(logger, ...payload);
+        logMethod.call(logger, ...message);
       }),
     ),
     Logger.minimumLogLevel(PINO_LEVEL_MAP[logger.level] ?? LogLevel.Info),

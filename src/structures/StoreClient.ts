@@ -9,7 +9,7 @@ const ensureDir = (path: string): Effect.Effect<void, StoreClientError> =>
   Effect.tryPromise({
     try: () => mkdir(dirname(path), { recursive: true }),
     catch: (cause) => new StoreClientError({ message: `Failed to ensure directory: ${dirname(path)}`, cause }),
-  }).pipe(Effect.asVoid);
+  });
 
 export class StoreClientError extends Data.TaggedError('StoreClientError')<{
   readonly message: string;
@@ -123,9 +123,17 @@ export const makeStoreClient = <A extends object, I, R>(
 
     return {
       get: Ref.get(dataRef),
-      set: (partial: Partial<A>) => Ref.update(dataRef, (current) => ({ ...current, ...partial })).pipe(Effect.zipRight(Ref.set(dirtyRef, true))),
-      update: (f: (data: A) => A) => Ref.update(dataRef, f).pipe(Effect.zipRight(Ref.set(dirtyRef, true))),
-      setDelay: (delayMs: number) => Ref.set(delayRef, Math.max(1000, delayMs)),
+      set: (partial) =>
+        Effect.gen(function* () {
+          yield* Ref.update(dataRef, (current) => ({ ...current, ...partial }));
+          yield* Ref.set(dirtyRef, true);
+        }),
+      update: (f) =>
+        Effect.gen(function* () {
+          yield* Ref.update(dataRef, f);
+          yield* Ref.set(dirtyRef, true);
+        }),
+      setDelay: (delayMs) => Ref.set(delayRef, Math.max(1000, delayMs)),
     } satisfies StoreClient<A>;
   });
 
