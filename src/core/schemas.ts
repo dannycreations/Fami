@@ -59,6 +59,7 @@ export const SessionContext = Schema.Struct({
   freeGameList: Schema.Array(GameContext),
   forceRegister: Schema.Boolean,
   ownedGameList: Schema.Array(GameContext),
+  ownedGameIds: Schema.HashSet(Schema.Number),
   bannedGameIds: Schema.HashSet(Schema.Number),
 });
 
@@ -71,6 +72,7 @@ export const INITIAL_SESSION: SessionContext = {
   freeGameList: [],
   forceRegister: false,
   ownedGameList: [],
+  ownedGameIds: HashSet.empty(),
   bannedGameIds: HashSet.empty(),
 };
 

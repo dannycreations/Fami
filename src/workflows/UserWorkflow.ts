@@ -49,8 +49,8 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
     const idleLoop = checkLoggedOn(
       Effect.gen(function* () {
         const { isPlaying, family, isEnabled } = yield* Ref.get(state.state);
-        const familyOnline = Object.values(family).filter((s) => !(USER_OFFLINE_STATE as readonly number[]).includes(s));
-        const hasFamilyOnline = familyOnline.length > 0;
+
+        const hasFamilyOnline = Object.values(family).some((status) => !(USER_OFFLINE_STATE as readonly number[]).includes(status));
 
         if (hasFamilyOnline) {
           if (isEnabled || isPlaying) {

@@ -152,11 +152,10 @@ export const handleVacBans = (user: UserContext, event: Extract<SteamEvent, { _t
 
       const config = yield* configStore.get;
       if (config.skipBannedGames) {
-        yield* sessionStore.update((data) => {
-          const ids = HashSet.beginMutation(HashSet.empty<number>());
-          for (const id of event.appids) HashSet.add(ids, id);
-          return { ...data, bannedGameIds: HashSet.endMutation(ids) };
-        });
+        yield* sessionStore.update((data) => ({
+          ...data,
+          bannedGameIds: HashSet.fromIterable(event.appids),
+        }));
       }
     } else {
       yield* sessionStore.update((data) => ({ ...data, bannedGameIds: HashSet.empty() }));
@@ -173,18 +172,16 @@ export const handleUserUpdate = (
   Effect.gen(function* () {
     const { family, isEnabled, isPlaying } = yield* Ref.get(state.state);
     const userId = event.steamId.toString();
-    const steamId = yield* steamClient.steamID;
-    const selfId = steamId?.toString();
+    const personaState = event.user.persona_state;
 
-    const isSelf = selfId === userId || user.id === userId;
-    const currentPersona = family[userId];
-
-    if (isSelf || typeof currentPersona !== 'number') {
+    if (!(userId in family) || (family[userId] !== -1 && personaState === null)) {
       return;
     }
 
-    const personaState = event.user.persona_state;
-    if (currentPersona !== -1 && personaState === null) {
+    const steamId = yield* steamClient.steamID;
+    const selfId = steamId?.toString();
+
+    if (selfId === userId || user.id === userId) {
       return;
     }
 

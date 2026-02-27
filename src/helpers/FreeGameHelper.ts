@@ -84,11 +84,8 @@ export const collectFreeGames = (
     const steamClient = yield* SteamClientTag;
     const sessionData = yield* sessionStore.get;
 
-    const bannedAndOwned = HashSet.beginMutation(HashSet.empty<number>());
-    for (const id of sessionData.bannedGameIds) HashSet.add(bannedAndOwned, id);
-    for (const g of sessionData.ownedGameList) HashSet.add(bannedAndOwned, g.appId);
-
-    const { whitelist, blacklist } = getUserPreferences(configData, user, HashSet.endMutation(bannedAndOwned));
+    const bannedAndOwned = HashSet.union(sessionData.bannedGameIds, sessionData.ownedGameIds);
+    const { whitelist, blacklist } = getUserPreferences(configData, user, bannedAndOwned);
 
     const html = yield* fetchSearchPage(sessionData.lastPage).pipe(catchAndLogUnlessTimeout(`${user.username} FreeGame collection failed`, ''));
 
@@ -113,16 +110,11 @@ export const collectFreeGames = (
           const filteredGames = filterGames(gamesToFilter, { whitelist, blacklist });
 
           if (filteredGames.length > 0) {
-            yield* sessionStore.update((data) => {
-              const ids = HashSet.beginMutation(HashSet.empty<number>());
-              for (const id of data.freeGameIds) HashSet.add(ids, id);
-              for (const g of filteredGames) HashSet.add(ids, g.appId);
-              return {
-                ...data,
-                freeGameIds: HashSet.endMutation(ids),
-                freeGameList: [...data.freeGameList, ...filteredGames],
-              };
-            });
+            yield* sessionStore.update((data) => ({
+              ...data,
+              freeGameIds: HashSet.fromIterable([...data.freeGameIds, ...filteredGames.map((g) => g.appId)]),
+              freeGameList: [...data.freeGameList, ...filteredGames],
+            }));
           }
         }
       }
