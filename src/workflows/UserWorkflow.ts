@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { chalk } from '@vegapunk/utilities';
-import { Array, Cause, Deferred, Effect, Ref, Schedule, Stream } from 'effect';
+import { Cause, Deferred, Effect, Ref, Schedule, Stream } from 'effect';
 import SteamUser from 'steam-user';
 
 import { AuthError } from '../core/errors';
@@ -49,7 +49,7 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
     const idleLoop = checkLoggedOn(
       Effect.gen(function* () {
         const { isPlaying, family, isEnabled } = yield* Ref.get(state.state);
-        const familyOnline = Object.values(family).filter((s) => !Array.contains(USER_OFFLINE_STATE, s));
+        const familyOnline = Object.values(family).filter((s) => !(USER_OFFLINE_STATE as readonly number[]).includes(s));
         const hasFamilyOnline = familyOnline.length > 0;
 
         if (hasFamilyOnline) {
@@ -118,7 +118,7 @@ const createUserSession = (user: UserContext) =>
     const stateRef = yield* Ref.make({
       isEnabled: false,
       isPlaying: false,
-      family: Object.fromEntries(Array.map(user.family ?? [], (r) => [r, -1])),
+      family: Object.fromEntries((user.family ?? []).map((r) => [r, -1])),
     });
 
     const state: UserWorkflowState = {
@@ -157,19 +157,16 @@ const createUserSession = (user: UserContext) =>
       ),
     );
 
-    const watchdog = Deferred.await(state.loggedOn).pipe(
-      Effect.zipRight(Effect.sleep('1 minute')),
-      Effect.zipRight(Ref.get(state.state)),
-      Effect.flatMap((s) =>
-        Effect.gen(function* () {
-          const hasFamilyOnline = Object.values(s.family).some((status) => !Array.contains(USER_OFFLINE_STATE, status));
-          if (s.isEnabled && !s.isPlaying && !hasFamilyOnline) {
-            yield* Effect.logInfo(chalk`${user.username} not playing games after 1 minute of login`);
-            return yield* Effect.fail(new Cause.TimeoutException());
-          }
-        }),
-      ),
-    );
+    const watchdog = Effect.gen(function* () {
+      yield* Deferred.await(state.loggedOn);
+      yield* Effect.sleep('1 minute');
+      const s = yield* Ref.get(state.state);
+      const hasFamilyOnline = Object.values(s.family).some((status) => !(USER_OFFLINE_STATE as readonly number[]).includes(status));
+      if (s.isEnabled && !s.isPlaying && !hasFamilyOnline) {
+        yield* Effect.logInfo(chalk`${user.username} not playing games after 1 minute of login`);
+        return yield* Effect.fail(new Cause.TimeoutException());
+      }
+    });
 
     yield* Effect.all(
       [

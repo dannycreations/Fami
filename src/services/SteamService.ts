@@ -175,7 +175,7 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, ne
         }).pipe(Effect.timeout('1 minute')),
       logOff: Effect.sync(() => user.logOff()),
       setPersona: (state) => Effect.sync(() => user.setPersona(state)),
-      gamesPlayed: (appIds) => Effect.sync(() => user.gamesPlayed([...appIds])),
+      gamesPlayed: (appIds) => Effect.sync(() => user.gamesPlayed(appIds as number[])),
       getCommunityUser: (id) =>
         Effect.async<CSteamUser | null>((resume) => {
           community.getSteamUser(id, (error, user) => {
@@ -186,12 +186,12 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, ne
           Effect.catchTag('TimeoutException', () => Effect.succeed(null)),
         ),
       getUserOwnedApps: (steamID, options) => wrapPromise(() => user.getUserOwnedApps(steamID, options), '1 minute'),
-      getProductInfo: (apps, packages) => wrapPromise(() => user.getProductInfo([...apps], [...packages])),
-      requestFreeLicense: (appIDs) => wrapPromise(() => user.requestFreeLicense([...appIDs])),
+      getProductInfo: (apps, packages) => wrapPromise(() => user.getProductInfo(apps as number[], packages as number[])),
+      requestFreeLicense: (appIDs) => wrapPromise(() => user.requestFreeLicense(appIDs as number[])),
       updatePersonaAndGames: (state, appIds) =>
         Effect.sync(() => {
           user.setPersona(state);
-          user.gamesPlayed([...appIds]);
+          user.gamesPlayed(appIds as number[]);
         }),
     } satisfies SteamClient;
   });

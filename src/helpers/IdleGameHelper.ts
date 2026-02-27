@@ -1,6 +1,6 @@
 import { shuffle } from '@vegapunk/utilities/common';
 import { humanizeDuration } from '@vegapunk/utilities/time';
-import { Array, Effect, Random } from 'effect';
+import { Effect, Random } from 'effect';
 import SteamUser from 'steam-user';
 
 import { SessionStore } from '../core/schemas';
@@ -19,15 +19,15 @@ export const startIdleGames = (username: string): Effect.Effect<number, never, S
     const now = yield* Effect.clock.pipe(Effect.flatMap((clock) => clock.currentTimeMillis));
     const nextIdleAt = now + idleMs;
 
-    const allOwnedIds = Array.map(sessionData.ownedGameList, (game) => game.appId);
+    const allOwnedIds = sessionData.ownedGameList.map((game) => game.appId);
     const maxIdleTotal = Math.min(MAX_IDLE_GAMES, allOwnedIds.length);
 
     if (maxIdleTotal === 0) {
       return nextIdleAt;
     }
 
-    const shuffledIds = shuffle([...allOwnedIds]);
-    const idsToIdle = Array.take(shuffledIds, maxIdleTotal);
+    shuffle(allOwnedIds);
+    const idsToIdle = allOwnedIds.slice(0, maxIdleTotal);
 
     yield* steamClient.setPersona(SteamUser.EPersonaState.Online);
     yield* steamClient.gamesPlayed(idsToIdle);

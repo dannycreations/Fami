@@ -1,6 +1,6 @@
 import { createInterface } from 'node:readline';
 import { chalk } from '@vegapunk/utilities';
-import { Array, Deferred, Effect, HashSet, Ref } from 'effect';
+import { Deferred, Effect, HashSet, Ref } from 'effect';
 import SteamTotp from 'steam-totp';
 import SteamUser from 'steam-user';
 
@@ -39,7 +39,7 @@ export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, stat
 
     yield* configStore.update((cfg) => ({
       ...cfg,
-      users: Array.map(cfg.users, (u) => (u.username === user.username ? { ...u, id: steamIdString } : u)),
+      users: cfg.users.map((u) => (u.username === user.username ? { ...u, id: steamIdString } : u)),
     }));
 
     const config = yield* configStore.get;
@@ -105,7 +105,7 @@ const handleInvalidCredentials = (user: UserContext) =>
     yield* Effect.logError(`${user.username} Invalid credentials/token. Clearing refresh token.`);
     yield* configStore.update((cfg) => ({
       ...cfg,
-      users: Array.map(cfg.users, (u) => (u.username === user.username ? { ...u, refreshToken: undefined } : u)),
+      users: cfg.users.map((u) => (u.username === user.username ? { ...u, refreshToken: undefined } : u)),
     }));
   });
 
@@ -185,7 +185,7 @@ export const handleUserUpdate = (
     }
 
     const userPersona = personaState ?? SteamUser.EPersonaState.Offline;
-    const isUserOffline = Array.contains(USER_OFFLINE_STATE, userPersona);
+    const isUserOffline = (USER_OFFLINE_STATE as readonly number[]).includes(userPersona);
 
     yield* Ref.update(state.state, (s) => ({ ...s, family: { ...s.family, [userId]: userPersona } }));
 
@@ -208,7 +208,7 @@ export const handleSteamEvent = (event: SteamEvent, user: UserContext, steamClie
       case 'RefreshToken':
         return yield* configStore.update((cfg) => ({
           ...cfg,
-          users: Array.map(cfg.users, (u) => (u.username === user.username ? { ...u, refreshToken: event.token } : u)),
+          users: cfg.users.map((u) => (u.username === user.username ? { ...u, refreshToken: event.token } : u)),
         }));
       case 'SteamGuard':
         return yield* handleSteamGuard(user, event);
