@@ -15,15 +15,13 @@ export const getUserPreferences = (
   user: UserContext,
   bannedIds: HashSet.HashSet<number> = HashSet.empty(),
 ): UserPreferences => {
-  const whitelist = HashSet.beginMutation(HashSet.fromIterable(config.whitelistGameIds ?? []));
-  if (user.whitelistGameIds) {
-    for (const id of user.whitelistGameIds) HashSet.add(whitelist, id);
-  }
+  const whitelist = HashSet.beginMutation(HashSet.empty<number>());
+  config.whitelistGameIds?.forEach((id) => HashSet.add(whitelist, id));
+  user.whitelistGameIds?.forEach((id) => HashSet.add(whitelist, id));
 
-  const blacklist = HashSet.beginMutation(HashSet.fromIterable(config.blacklistGameIds ?? []));
-  if (user.blacklistGameIds) {
-    for (const id of user.blacklistGameIds) HashSet.add(blacklist, id);
-  }
+  const blacklist = HashSet.beginMutation(HashSet.empty<number>());
+  config.blacklistGameIds?.forEach((id) => HashSet.add(blacklist, id));
+  user.blacklistGameIds?.forEach((id) => HashSet.add(blacklist, id));
   for (const id of bannedIds) HashSet.add(blacklist, id);
 
   return new UserPreferences({
@@ -57,19 +55,18 @@ export const getFilteredGames = (
 
 export const parseAppIdsFromHtml = (html: string): ReadonlyArray<number> => {
   const ids = new Set<number>();
-  let match: RegExpExecArray | null;
   const regex = /data-ds-appid="([\d,]+)"/g;
 
-  while ((match = regex.exec(html)) !== null) {
-    let start = 0;
+  for (const match of html.matchAll(regex)) {
     const val = match[1];
-    while (true) {
-      const commaIndex = val.indexOf(',', start);
-      const part = commaIndex === -1 ? val.slice(start) : val.slice(start, commaIndex);
-      const num = parseInt(part, 10);
+    if (val.includes(',')) {
+      for (const part of val.split(',')) {
+        const num = Number.parseInt(part, 10);
+        if (!Number.isNaN(num)) ids.add(num);
+      }
+    } else {
+      const num = Number.parseInt(val, 10);
       if (!Number.isNaN(num)) ids.add(num);
-      if (commaIndex === -1) break;
-      start = commaIndex + 1;
     }
   }
 

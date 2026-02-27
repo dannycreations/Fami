@@ -60,10 +60,10 @@ export const registerFreeGames = (user: UserContext): Effect.Effect<void, never,
 
     yield* Effect.logInfo(`${user.username} added ${gamesToRegister.length}/${sessionData.freeGameList.length}/${sessionData.lastPage} new games`);
 
-    const gameIdsSet = HashSet.fromIterable(gameIdsToRegister);
+    const gameIdsSet = new Set(gameIdsToRegister);
     yield* sessionStore.update((data) => ({
       ...data,
-      freeGameList: data.freeGameList.filter((g) => !HashSet.has(gameIdsSet, g.appId)),
+      freeGameList: data.freeGameList.filter((g) => !gameIdsSet.has(g.appId)),
       lastLoop: 0,
       forceRegister: false,
     }));
@@ -84,10 +84,11 @@ export const collectFreeGames = (
     const steamClient = yield* SteamClientTag;
     const sessionData = yield* sessionStore.get;
 
-    const bannedAndOwned = HashSet.beginMutation(sessionData.bannedGameIds);
+    const bannedAndOwned = HashSet.beginMutation(HashSet.empty<number>());
+    for (const id of sessionData.bannedGameIds) HashSet.add(bannedAndOwned, id);
     for (const g of sessionData.ownedGameList) HashSet.add(bannedAndOwned, g.appId);
 
-    const { whitelist, blacklist } = getUserPreferences(configData, user, HashSet.endMutation(bannedAndOwned) as HashSet.HashSet<number>);
+    const { whitelist, blacklist } = getUserPreferences(configData, user, HashSet.endMutation(bannedAndOwned));
 
     const html = yield* fetchSearchPage(sessionData.lastPage).pipe(catchAndLogUnlessTimeout(`${user.username} FreeGame collection failed`, ''));
 
@@ -113,11 +114,12 @@ export const collectFreeGames = (
 
           if (filteredGames.length > 0) {
             yield* sessionStore.update((data) => {
-              const ids = HashSet.beginMutation(data.freeGameIds);
+              const ids = HashSet.beginMutation(HashSet.empty<number>());
+              for (const id of data.freeGameIds) HashSet.add(ids, id);
               for (const g of filteredGames) HashSet.add(ids, g.appId);
               return {
                 ...data,
-                freeGameIds: HashSet.endMutation(ids) as HashSet.HashSet<number>,
+                freeGameIds: HashSet.endMutation(ids),
                 freeGameList: [...data.freeGameList, ...filteredGames],
               };
             });

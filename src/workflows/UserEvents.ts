@@ -152,7 +152,11 @@ export const handleVacBans = (user: UserContext, event: Extract<SteamEvent, { _t
 
       const config = yield* configStore.get;
       if (config.skipBannedGames) {
-        yield* sessionStore.update((data) => ({ ...data, bannedGameIds: HashSet.fromIterable(event.appids) }));
+        yield* sessionStore.update((data) => {
+          const ids = HashSet.beginMutation(HashSet.empty<number>());
+          for (const id of event.appids) HashSet.add(ids, id);
+          return { ...data, bannedGameIds: HashSet.endMutation(ids) };
+        });
       }
     } else {
       yield* sessionStore.update((data) => ({ ...data, bannedGameIds: HashSet.empty() }));

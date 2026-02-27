@@ -1,5 +1,5 @@
 import { unionBy } from '@vegapunk/utilities/common';
-import { Effect, HashSet } from 'effect';
+import { Effect } from 'effect';
 
 import { catchAndLogUnlessTimeout } from '../core/errors';
 import { ConfigStoreTag, SessionStore, UserContext } from '../core/schemas';
@@ -42,8 +42,8 @@ export const collectOwnGames = (user: UserContext): Effect.Effect<void, never, S
 
     const filteredGames = getFilteredGames(combinedGames, configData, user, sessionData.bannedGameIds);
 
-    const ownedIds = HashSet.fromIterable(sessionData.ownedGameList.map((g) => g.appId));
-    const newGames = filteredGames.filter((g) => !HashSet.has(ownedIds, g.appId));
+    const ownedIds = new Set(sessionData.ownedGameList.map((g) => g.appId));
+    const newGames = filteredGames.filter((g) => !ownedIds.has(g.appId));
 
     if (newGames.length > 0) {
       yield* sessionStore.update((data) => ({
