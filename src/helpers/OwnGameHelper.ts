@@ -1,5 +1,5 @@
 import { unionBy } from '@vegapunk/utilities/common';
-import { Array, Effect } from 'effect';
+import { Array, Effect, HashSet } from 'effect';
 
 import { catchAndLogUnlessTimeout } from '../core/errors';
 import { ConfigStoreTag, SessionStore, UserContext } from '../core/schemas';
@@ -34,6 +34,8 @@ export const collectOwnGames = (user: UserContext): Effect.Effect<void, never, S
       catchAndLogUnlessTimeout(`${user.username} OwnGame scanning failed`, []),
     );
 
+    const ownedIds = HashSet.fromIterable(Array.map(sessionData.ownedGameList, (g) => g.appId));
+
     const combinedGames = unionBy(
       Array.map(apps, (a) => ({ appId: a.appid, name: a.name || 'unknown' })),
       Array.map([...whitelist], (appId) => ({ appId, name: 'unknown' })),
@@ -42,7 +44,7 @@ export const collectOwnGames = (user: UserContext): Effect.Effect<void, never, S
 
     const filteredGames = getFilteredGames(combinedGames, configData, user, sessionData.bannedGameIds);
 
-    const newGames = Array.filter(filteredGames, (g) => !Array.some(sessionData.ownedGameList, (r) => r.appId === g.appId));
+    const newGames = Array.filter(filteredGames, (g) => !HashSet.has(ownedIds, g.appId));
 
     if (newGames.length > 0) {
       yield* sessionStore.update((data) => ({

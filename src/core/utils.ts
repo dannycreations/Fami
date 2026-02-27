@@ -10,11 +10,18 @@ export class UserPreferences extends Data.Class<{
   readonly blacklist: HashSet.HashSet<number>;
 }> {}
 
-export const getUserPreferences = (config: ConfigContext, user: UserContext, bannedIds: ReadonlyArray<number> = []): UserPreferences => {
+export const getUserPreferences = (
+  config: ConfigContext,
+  user: UserContext,
+  bannedIds: HashSet.HashSet<number> = HashSet.empty(),
+): UserPreferences => {
   const whitelist = HashSet.fromIterable([...(config.whitelistGameIds ?? []), ...(user.whitelistGameIds ?? [])]);
-  const blacklist = HashSet.fromIterable([...(config.blacklistGameIds ?? []), ...(user.blacklistGameIds ?? []), ...bannedIds]);
+  const blacklist = HashSet.fromIterable([...(config.blacklistGameIds ?? []), ...(user.blacklistGameIds ?? [])]);
 
-  return new UserPreferences({ whitelist, blacklist });
+  return new UserPreferences({
+    whitelist,
+    blacklist: HashSet.union(blacklist, bannedIds),
+  });
 };
 
 export interface FilterGamesOptions {
@@ -43,19 +50,24 @@ export const getFilteredGames = (
   games: ReadonlyArray<GameContext>,
   config: ConfigContext,
   user: UserContext,
-  bannedIds: ReadonlyArray<number> = [],
+  bannedIds: HashSet.HashSet<number> = HashSet.empty(),
 ): ReadonlyArray<GameContext> => filterGames(games, getUserPreferences(config, user, bannedIds));
 
 export const parseAppIdsFromHtml = (html: string): ReadonlyArray<number> => {
-  const matches = html.match(/data-ds-appid="([^"]+)"/g);
-  if (!matches) {
-    return [];
+  const matches = html.matchAll(/data-ds-appid="(\d+(?:,\d+)*)"/g);
+  const ids = new Set<number>();
+
+  for (const match of matches) {
+    const rawIds = match[1].split(',');
+    for (const id of rawIds) {
+      const num = Number(id);
+      if (!Number.isNaN(num)) {
+        ids.add(num);
+      }
+    }
   }
 
-  const extractedIds = Array.flatMap(matches, (match) => match.match(/\d+/g) || []);
-  const numericIds = Array.map(extractedIds, Number);
-
-  return Array.dedupe(numericIds);
+  return Array.fromIterable(ids);
 };
 
 export const getRateLimitSleep = (refreshGames: number): number => Math.max(refreshGames, RATE_LIMIT_MIN_MS);

@@ -1,6 +1,6 @@
 import { createInterface } from 'node:readline';
 import { chalk } from '@vegapunk/utilities';
-import { Array, Deferred, Effect, Ref } from 'effect';
+import { Array, Deferred, Effect, HashSet, Ref } from 'effect';
 import SteamTotp from 'steam-totp';
 import SteamUser from 'steam-user';
 
@@ -152,10 +152,10 @@ export const handleVacBans = (user: UserContext, event: Extract<SteamEvent, { _t
 
       const config = yield* configStore.get;
       if (config.skipBannedGames) {
-        yield* sessionStore.update((data) => ({ ...data, bannedGameIds: event.appids }));
+        yield* sessionStore.update((data) => ({ ...data, bannedGameIds: HashSet.fromIterable(event.appids) }));
       }
     } else {
-      yield* sessionStore.update((data) => ({ ...data, bannedGameIds: [] }));
+      yield* sessionStore.update((data) => ({ ...data, bannedGameIds: HashSet.empty() }));
       yield* Effect.logInfo(`${user.username} has no VAC bans`);
     }
   });
@@ -167,7 +167,7 @@ export const handleUserUpdate = (
   state: UserWorkflowState,
 ) =>
   Effect.gen(function* () {
-    const { family, isEnabled } = yield* Ref.get(state.state);
+    const { family, isEnabled, isPlaying } = yield* Ref.get(state.state);
     const userId = event.steamId.toString();
     const steamId = yield* steamClient.steamID;
     const selfId = steamId?.toString();
@@ -189,8 +189,8 @@ export const handleUserUpdate = (
 
     yield* Ref.update(state.state, (s) => ({ ...s, family: { ...s.family, [userId]: userPersona } }));
 
-    if (!isUserOffline && isEnabled) {
-      yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false }));
+    if (!isUserOffline && (isEnabled || isPlaying)) {
+      yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false, isPlaying: false }));
       yield* state.setGamesPlayed([]);
 
       const playerName = event.user.player_name || 'FamilyMember';

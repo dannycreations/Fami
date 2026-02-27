@@ -83,10 +83,8 @@ export const collectFreeGames = (
     const steamClient = yield* SteamClientTag;
     const sessionData = yield* sessionStore.get;
 
-    const { whitelist, blacklist } = getUserPreferences(configData, user, [
-      ...sessionData.bannedGameIds,
-      ...Array.map(sessionData.ownedGameList, (g) => g.appId),
-    ]);
+    const ownedGameIds = HashSet.fromIterable(Array.map(sessionData.ownedGameList, (g) => g.appId));
+    const { whitelist, blacklist } = getUserPreferences(configData, user, HashSet.union(sessionData.bannedGameIds, ownedGameIds));
 
     const appIds = yield* fetchSearchPage(sessionData.lastPage).pipe(
       Effect.map(parseAppIdsFromHtml),
@@ -94,7 +92,7 @@ export const collectFreeGames = (
     );
 
     if (appIds.length > 0) {
-      const appIdsToCheck = Array.filter(appIds, (id) => !HashSet.has(blacklist, id) && !Array.contains(sessionData.freeGameIds, id));
+      const appIdsToCheck = Array.filter(appIds, (id) => !HashSet.has(blacklist, id) && !HashSet.has(sessionData.freeGameIds, id));
 
       if (appIdsToCheck.length > 0) {
         const productInfo = yield* steamClient.getProductInfo(appIdsToCheck, []).pipe(Effect.catchAll(() => Effect.succeed({ apps: null })));
@@ -115,7 +113,7 @@ export const collectFreeGames = (
           if (filteredGames.length > 0) {
             yield* sessionStore.update((data) => ({
               ...data,
-              freeGameIds: [...data.freeGameIds, ...Array.map(filteredGames, (g) => g.appId)],
+              freeGameIds: HashSet.union(data.freeGameIds, HashSet.fromIterable(Array.map(filteredGames, (g) => g.appId))),
               freeGameList: [...data.freeGameList, ...filteredGames],
             }));
           }
@@ -131,7 +129,7 @@ export const collectFreeGames = (
           lastLoop: shouldReset ? 0 : data.lastLoop + 1,
           lastPage: shouldReset ? 1 : data.lastPage,
           forceRegister: shouldReset ? true : data.forceRegister,
-          freeGameIds: shouldReset ? [] : data.freeGameIds,
+          freeGameIds: shouldReset ? HashSet.empty() : data.freeGameIds,
         };
       });
     }

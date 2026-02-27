@@ -96,9 +96,9 @@ const makeHttpClient = Effect.gen(function* () {
           resolveBodyOnly: false,
         }) as CancelableRequest<Response<T>>;
 
-        promise
-          .then((response) => resume(Effect.succeed(response)))
-          .catch((cause) =>
+        promise.then(
+          (response) => resume(Effect.succeed(response)),
+          (cause) =>
             resume(
               Effect.fail(
                 new HttpClientError({
@@ -109,7 +109,7 @@ const makeHttpClient = Effect.gen(function* () {
                 }),
               ),
             ),
-          );
+        );
 
         return Effect.sync(() => {
           promise.cancel();

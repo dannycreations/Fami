@@ -91,13 +91,15 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
     const fiber = runFork(cycle, { name: 'MainCycle' });
 
     const cleanUp = () => {
+      process.removeAllListeners('SIGINT');
+      process.removeAllListeners('SIGTERM');
       runPromise(Fiber.interrupt(fiber))
         .then(() => process.exit(0))
         .catch(() => process.exit(1));
     };
 
-    process.on('SIGINT', cleanUp);
-    process.on('SIGTERM', cleanUp);
+    process.once('SIGINT', cleanUp);
+    process.once('SIGTERM', cleanUp);
   });
 
   Effect.runFork(mainEffect as Effect.Effect<never, never, never>);

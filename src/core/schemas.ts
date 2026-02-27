@@ -1,4 +1,4 @@
-import { Context, Effect, Schema } from 'effect';
+import { Context, Effect, HashSet, Schema } from 'effect';
 
 import type { StoreClient } from '../structures/StoreClient';
 
@@ -55,11 +55,11 @@ export class ConfigStoreTag extends Context.Tag('@schemas/ConfigStore')<ConfigSt
 export const SessionContext = Schema.Struct({
   lastLoop: Schema.Number,
   lastPage: Schema.Number,
-  freeGameIds: Schema.Array(Schema.Number),
+  freeGameIds: Schema.HashSet(Schema.Number),
   freeGameList: Schema.Array(GameContext),
   forceRegister: Schema.Boolean,
   ownedGameList: Schema.Array(GameContext),
-  bannedGameIds: Schema.Array(Schema.Number),
+  bannedGameIds: Schema.HashSet(Schema.Number),
 });
 
 export type SessionContext = Schema.Schema.Type<typeof SessionContext>;
@@ -67,11 +67,11 @@ export type SessionContext = Schema.Schema.Type<typeof SessionContext>;
 export const INITIAL_SESSION: SessionContext = {
   lastLoop: 0,
   lastPage: 1,
-  freeGameIds: [],
+  freeGameIds: HashSet.empty(),
   freeGameList: [],
   forceRegister: false,
   ownedGameList: [],
-  bannedGameIds: [],
+  bannedGameIds: HashSet.empty(),
 };
 
 export class SessionStore extends Context.Tag('@schemas/SessionStore')<SessionStore, StoreClient<SessionContext>>() {}

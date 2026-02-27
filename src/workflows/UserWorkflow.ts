@@ -48,12 +48,16 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
 
     const idleLoop = checkLoggedOn(
       Effect.gen(function* () {
-        const { isPlaying, family } = yield* Ref.get(state.state);
-        const hasFamilyOnline = Object.values(family).some((s) => !Array.contains(USER_OFFLINE_STATE, s));
+        const { isPlaying, family, isEnabled } = yield* Ref.get(state.state);
+        const familyOnline = Object.values(family).filter((s) => !Array.contains(USER_OFFLINE_STATE, s));
+        const hasFamilyOnline = familyOnline.length > 0;
 
         if (hasFamilyOnline) {
-          yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false }));
-        } else if (!hasFamilyOnline && !isPlaying) {
+          if (isEnabled || isPlaying) {
+            yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false, isPlaying: false }));
+            yield* state.setGamesPlayed([]);
+          }
+        } else if (!isPlaying) {
           const steamId = yield* steamClient.steamID;
           if (steamId) {
             const communityUser = yield* steamClient.getCommunityUser(steamId);
