@@ -51,39 +51,49 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
         const { isPlaying, family, isEnabled } = yield* Ref.get(state.state);
 
         const hasFamilyOnline = Object.values(family).some((status) => !(USER_OFFLINE_STATE as readonly number[]).includes(status));
+        const shouldPause = hasFamilyOnline && (isEnabled || isPlaying);
 
-        if (hasFamilyOnline) {
-          if (isEnabled || isPlaying) {
-            yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false, isPlaying: false }));
-            yield* state.setGamesPlayed([]);
-          }
-        } else if (!isPlaying) {
+        if (shouldPause) {
+          yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false, isPlaying: false }));
+          yield* state.setGamesPlayed([]);
+        }
+
+        const shouldCheckOnlineState = !hasFamilyOnline && !isPlaying;
+
+        if (shouldCheckOnlineState) {
           const steamId = yield* steamClient.steamID;
-          if (steamId) {
-            const communityUser = yield* steamClient.getCommunityUser(steamId);
-            if (communityUser && typeof communityUser.onlineState === 'string') {
-              yield* Ref.update(state.state, (s) => ({
-                ...s,
-                isEnabled: communityUser.onlineState === 'offline',
-              }));
-            }
+          const communityUser = steamId ? yield* steamClient.getCommunityUser(steamId) : null;
+          const hasValidOnlineState = communityUser && typeof communityUser.onlineState === 'string';
+
+          if (hasValidOnlineState) {
+            yield* Ref.update(state.state, (s) => ({
+              ...s,
+              isEnabled: communityUser.onlineState === 'offline',
+            }));
           }
         }
 
         const currentState = yield* Ref.get(state.state);
         const now = yield* Effect.clock.pipe(Effect.flatMap((clock) => clock.currentTimeMillis));
-        if (currentState.isEnabled) {
-          if (now > (yield* Ref.get(nextIdleTimeRef))) {
-            const nextTime = yield* startIdleGames(user.username);
-            yield* Ref.set(nextIdleTimeRef, nextTime);
-            yield* Ref.update(state.state, (s) => ({ ...s, isPlaying: true }));
-          }
-        } else {
+
+        if (!currentState.isEnabled) {
           yield* Ref.set(nextIdleTimeRef, 0);
+
           if (isPlaying) {
             yield* state.setGamesPlayed([]);
             yield* Ref.update(state.state, (s) => ({ ...s, isPlaying: false }));
           }
+
+          return;
+        }
+
+        const nextIdleTime = yield* Ref.get(nextIdleTimeRef);
+        const isTimeReached = now > nextIdleTime;
+
+        if (isTimeReached) {
+          const nextTime = yield* startIdleGames(user.username);
+          yield* Ref.set(nextIdleTimeRef, nextTime);
+          yield* Ref.update(state.state, (s) => ({ ...s, isPlaying: true }));
         }
       }),
     ).pipe(Effect.repeat(Schedule.spaced('30 seconds')));
@@ -162,7 +172,9 @@ const createUserSession = (user: UserContext) =>
       yield* Effect.sleep('1 minute');
       const s = yield* Ref.get(state.state);
       const hasFamilyOnline = Object.values(s.family).some((status) => !(USER_OFFLINE_STATE as readonly number[]).includes(status));
-      if (s.isEnabled && !s.isPlaying && !hasFamilyOnline) {
+      const isNotPlayingWhileEnabled = s.isEnabled && !s.isPlaying && !hasFamilyOnline;
+
+      if (isNotPlayingWhileEnabled) {
         yield* Effect.logInfo(chalk`${user.username} not playing games after 1 minute of login`);
         return yield* Effect.fail(new Cause.TimeoutException());
       }

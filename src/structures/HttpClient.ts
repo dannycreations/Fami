@@ -53,7 +53,9 @@ export const isTimeoutError = (error: unknown): boolean =>
 
 export const isNetworkError = (error: unknown): boolean => {
   const isError = isErrorLike<{ readonly status?: number; readonly code?: string }>(error);
-  if (!isError) return false;
+  if (!isError) {
+    return false;
+  }
   const isNetwork = typeof error.code === 'string' && ERROR_CODES.has(error.code);
   const isRetryableStatus = typeof error.status === 'number' && ERROR_STATUS_CODES.has(error.status);
   return isNetwork || isRetryableStatus || isTimeoutError(error);
@@ -124,21 +126,24 @@ const makeHttpClient = Effect.gen(function* () {
       return response;
     });
 
-  const waitForConnectionFn = (total?: number): Effect.Effect<void> => {
-    const retryMs = total ?? 10_000;
-    const checkGoogle = Effect.promise(() => lookup('google.com'));
-    const checkApple = requestFn({
-      url: 'https://captive.apple.com/hotspot-detect.html',
-      headers: { 'user-agent': 'CaptiveNetworkSupport/1.0 wispr' },
-      timeout: { total: retryMs },
-    });
+  const waitForConnectionFn = (total?: number): Effect.Effect<void> =>
+    Effect.gen(function* () {
+      const retryMs = total ?? 10_000;
 
-    return Effect.firstSuccessOf([checkGoogle, checkApple]).pipe(
-      Effect.sandbox,
-      Effect.retry(Schedule.spaced(`${retryMs} millis`)),
-      Effect.catchAll(() => Effect.void),
-    );
-  };
+      const checkGoogle = Effect.promise(() => lookup('google.com'));
+
+      const checkApple = requestFn({
+        url: 'https://captive.apple.com/hotspot-detect.html',
+        headers: { 'user-agent': 'CaptiveNetworkSupport/1.0 wispr' },
+        timeout: { total: retryMs },
+      });
+
+      yield* Effect.firstSuccessOf([checkGoogle, checkApple]).pipe(
+        Effect.sandbox,
+        Effect.retry(Schedule.spaced(`${retryMs} millis`)),
+        Effect.catchAll(() => Effect.void),
+      );
+    });
 
   return {
     request: requestFn,

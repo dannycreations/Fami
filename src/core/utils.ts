@@ -15,9 +15,13 @@ export const getUserPreferences = (
   user: UserContext,
   bannedIds: HashSet.HashSet<number> = HashSet.empty(),
 ): UserPreferences => {
-  const whitelist = HashSet.fromIterable([...(config.whitelistGameIds ?? []), ...(user.whitelistGameIds ?? [])]);
+  const configWhitelist = config.whitelistGameIds ?? [];
+  const userWhitelist = user.whitelistGameIds ?? [];
+  const whitelist = HashSet.fromIterable([...configWhitelist, ...userWhitelist]);
 
-  const blacklist = HashSet.fromIterable([...(config.blacklistGameIds ?? []), ...(user.blacklistGameIds ?? []), ...bannedIds]);
+  const configBlacklist = config.blacklistGameIds ?? [];
+  const userBlacklist = user.blacklistGameIds ?? [];
+  const blacklist = HashSet.fromIterable([...configBlacklist, ...userBlacklist, ...bannedIds]);
 
   return new UserPreferences({ whitelist, blacklist });
 };
@@ -32,9 +36,22 @@ export const filterGames = (games: ReadonlyArray<GameContext>, options: FilterGa
   const { whitelist, blacklist, excludePatterns = true } = options;
 
   return games.filter((game) => {
-    if (HashSet.has(whitelist, game.appId)) return true;
-    if (HashSet.has(blacklist, game.appId)) return false;
-    return !(excludePatterns && EXCLUDED_GAME_NAME_PATTERN.test(game.name));
+    const isWhitelisted = HashSet.has(whitelist, game.appId);
+    if (isWhitelisted) {
+      return true;
+    }
+
+    const isBlacklisted = HashSet.has(blacklist, game.appId);
+    if (isBlacklisted) {
+      return false;
+    }
+
+    const isExcludedByPattern = excludePatterns && EXCLUDED_GAME_NAME_PATTERN.test(game.name);
+    if (isExcludedByPattern) {
+      return false;
+    }
+
+    return true;
   });
 };
 
@@ -52,15 +69,28 @@ export const parseAppIdsFromHtml = (html: string): ReadonlyArray<number> => {
 
   while ((match = regex.exec(html)) !== null) {
     const val = match[1];
-    if (val.indexOf(',') !== -1) {
-      const parts = val.split(',');
-      for (let i = 0, len = parts.length; i < len; i++) {
-        const num = Number.parseInt(parts[i], 10);
-        if (num > 0) ids.add(num);
-      }
-    } else {
+    const isSingleId = !val.includes(',');
+
+    if (isSingleId) {
       const num = Number.parseInt(val, 10);
-      if (num > 0) ids.add(num);
+
+      if (num > 0) {
+        ids.add(num);
+      }
+
+      continue;
+    }
+
+    const parts = val.split(',');
+
+    for (const part of parts) {
+      const num = Number.parseInt(part, 10);
+
+      if (num <= 0) {
+        continue;
+      }
+
+      ids.add(num);
     }
   }
 

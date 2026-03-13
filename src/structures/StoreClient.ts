@@ -34,13 +34,19 @@ const loadStore = (filePath: string): Effect.Effect<unknown, StoreClientError> =
         catch: (cause) => new StoreClientError({ message: `Failed to parse store: ${filePath}`, cause }),
       }),
     ),
-    Effect.catchAll((cause) =>
-      isErrorLike<{ readonly code: string }>(cause) && cause.code === 'ENOENT'
-        ? Effect.succeed({})
-        : cause instanceof StoreClientError
-          ? Effect.fail(cause)
-          : Effect.fail(new StoreClientError({ message: `Failed to load store: ${filePath}`, cause })),
-    ),
+    Effect.catchAll((cause) => {
+      const isNotFound = isErrorLike<{ readonly code: string }>(cause) && cause.code === 'ENOENT';
+      if (isNotFound) {
+        return Effect.succeed({});
+      }
+
+      if (cause instanceof StoreClientError) {
+        return Effect.fail(cause);
+      }
+
+      const error = new StoreClientError({ message: `Failed to load store: ${filePath}`, cause });
+      return Effect.fail(error);
+    }),
   );
 
 const saveStore = <A, I, R>(filePath: string, schema: Schema.Schema<A, I, R>, data: A): Effect.Effect<void, StoreClientError, R> =>
@@ -86,9 +92,11 @@ export const makeStoreClient = <A extends object, I, R>(
           yield* Effect.logWarning(`Store validation failed for ${filePath}, merging with defaults`);
           yield* Effect.logDebug(error);
 
-          const partial = yield* Schema.decodeUnknown(Schema.partial(schema))(rawData).pipe(Effect.catchAll(() => Effect.succeed({})));
+          const partialDecode = Schema.decodeUnknown(Schema.partial(schema));
+          const partial = yield* partialDecode(rawData).pipe(Effect.catchAll(() => Effect.succeed({})));
 
-          return Data.struct(defaultsDeep<A>({}, partial, initialData));
+          const merged = defaultsDeep<A>({}, partial, initialData);
+          return Data.struct(merged);
         }),
       ),
     );
@@ -97,10 +105,13 @@ export const makeStoreClient = <A extends object, I, R>(
 
     const save = Effect.gen(function* () {
       const isDirty = yield* Ref.getAndSet(dirtyRef, false);
-      if (!isDirty) return;
+
+      if (!isDirty) {
+        return;
+      }
 
       const data = yield* Ref.get(dataRef);
-      yield* saveStore(filePath, schema, data).pipe(
+      const saveResult = yield* saveStore(filePath, schema, data).pipe(
         Effect.catchAll((error) =>
           Effect.gen(function* () {
             yield* Ref.set(dirtyRef, true);
@@ -108,6 +119,8 @@ export const makeStoreClient = <A extends object, I, R>(
           }),
         ),
       );
+
+      return saveResult;
     });
 
     yield* Effect.forkScoped(
@@ -122,8 +135,16 @@ export const makeStoreClient = <A extends object, I, R>(
 
     return {
       get: Ref.get(dataRef),
-      set: (partial) => Ref.update(dataRef, (current) => ({ ...current, ...partial })).pipe(Effect.zipRight(Ref.set(dirtyRef, true))),
-      update: (f) => Ref.update(dataRef, f).pipe(Effect.zipRight(Ref.set(dirtyRef, true))),
+      set: (partial) =>
+        Effect.gen(function* () {
+          yield* Ref.update(dataRef, (current) => ({ ...current, ...partial }));
+          yield* Ref.set(dirtyRef, true);
+        }),
+      update: (f) =>
+        Effect.gen(function* () {
+          yield* Ref.update(dataRef, f);
+          yield* Ref.set(dirtyRef, true);
+        }),
       setDelay: (delayMs) => Ref.set(delayRef, Math.max(1000, delayMs)),
     } satisfies StoreClient<A>;
   });

@@ -33,8 +33,13 @@ export const registerFreeGames = (user: UserContext): Effect.Effect<void, never,
     const sessionStore = yield* SessionStore;
     const sessionData = yield* sessionStore.get;
 
+    const hasGames = sessionData.freeGameList.length > 0;
+    if (!hasGames) {
+      return;
+    }
+
     const isSufficient = sessionData.freeGameList.length >= MAX_FREE_GAMES_BATCH || sessionData.forceRegister;
-    if (!isSufficient || sessionData.freeGameList.length === 0) {
+    if (!isSufficient) {
       return;
     }
 
@@ -48,11 +53,15 @@ export const registerFreeGames = (user: UserContext): Effect.Effect<void, never,
     yield* steamClient.requestFreeLicense(gameIdsToRegister).pipe(
       Effect.tapError((error) =>
         Effect.gen(function* () {
-          if ('eresult' in error && error.eresult === SteamUser.EResult.RateLimitExceeded) {
-            const sleepMs = getRateLimitSleep(configData.refreshGames);
-            yield* Effect.logWarning(`${user.username} FreeGame rate limit exceeded. Waiting ${sleepMs / 60000}m...`);
-            yield* Effect.sleep(`${sleepMs} millis`);
+          const isRateLimited = 'eresult' in error && error.eresult === SteamUser.EResult.RateLimitExceeded;
+
+          if (!isRateLimited) {
+            return;
           }
+
+          const sleepMs = getRateLimitSleep(configData.refreshGames);
+          yield* Effect.logWarning(`${user.username} FreeGame rate limit exceeded. Waiting ${sleepMs / 60000}m...`);
+          yield* Effect.sleep(`${sleepMs} millis`);
         }),
       ),
       catchAndLogUnlessTimeout(`${user.username} FreeGame registration failed`, undefined),
@@ -77,7 +86,9 @@ export const collectFreeGames = (
     const sessionStore = yield* SessionStore;
     const configData = yield* configStore.get;
 
-    if (!configData.fetchFreeGames && !user.fetchFreeGames) {
+    const isFetchEnabled = configData.fetchFreeGames || user.fetchFreeGames;
+
+    if (!isFetchEnabled) {
       return;
     }
 
@@ -89,40 +100,12 @@ export const collectFreeGames = (
 
     const html = yield* fetchSearchPage(sessionData.lastPage).pipe(catchAndLogUnlessTimeout(`${user.username} FreeGame collection failed`, ''));
 
-    if (html.length > 0) {
-      const appIds = parseAppIdsFromHtml(html);
-      const appIdsToCheck = appIds.filter((id) => !HashSet.has(blacklist, id) && !HashSet.has(sessionData.freeGameIds, id));
+    const isEmptyHtml = html.length === 0;
 
-      if (appIdsToCheck.length > 0) {
-        const productInfo = yield* steamClient.getProductInfo(appIdsToCheck, []).pipe(Effect.catchAll(() => Effect.succeed({ apps: null })));
-
-        const apps = productInfo.apps;
-        if (isObjectLike(apps)) {
-          const gamesToFilter: GameContext[] = [];
-          for (const appId of appIdsToCheck) {
-            const app = apps[appId];
-            const common = app?.appinfo?.common as Record<string, unknown> | undefined;
-            if (common && common.releasestate === 'released' && String(common.type).toLowerCase() === 'game' && typeof common.name === 'string') {
-              gamesToFilter.push({ name: String(common.name), appId });
-            }
-          }
-
-          const filteredGames = filterGames(gamesToFilter, { whitelist, blacklist });
-
-          if (filteredGames.length > 0) {
-            yield* sessionStore.update((data) => ({
-              ...data,
-              freeGameIds: HashSet.fromIterable([...data.freeGameIds, ...filteredGames.map((g) => g.appId)]),
-              freeGameList: [...data.freeGameList, ...filteredGames],
-            }));
-          }
-        }
-      }
-
-      yield* sessionStore.update((data) => ({ ...data, lastPage: data.lastPage + 1 }));
-    } else {
+    if (isEmptyHtml) {
       yield* sessionStore.update((data) => {
         const shouldReset = data.lastLoop + 1 >= 5;
+
         return {
           ...data,
           lastLoop: shouldReset ? 0 : data.lastLoop + 1,
@@ -131,7 +114,80 @@ export const collectFreeGames = (
           freeGameIds: shouldReset ? HashSet.empty() : data.freeGameIds,
         };
       });
+
+      const semaphore = yield* RegistrationSemaphore;
+
+      return yield* semaphore.withPermits(1)(registerFreeGames(user));
     }
+
+    const appIds = parseAppIdsFromHtml(html);
+    const appIdsToCheck = appIds.filter((id) => !HashSet.has(blacklist, id) && !HashSet.has(sessionData.freeGameIds, id));
+    const hasNoNewApps = appIdsToCheck.length === 0;
+
+    if (hasNoNewApps) {
+      yield* sessionStore.update((data) => ({ ...data, lastPage: data.lastPage + 1 }));
+
+      const semaphore = yield* RegistrationSemaphore;
+
+      return yield* semaphore.withPermits(1)(registerFreeGames(user));
+    }
+
+    const productInfo = yield* steamClient.getProductInfo(appIdsToCheck, []).pipe(Effect.catchAll(() => Effect.succeed({ apps: null })));
+
+    const apps = productInfo.apps;
+    const isInvalidApps = !isObjectLike(apps);
+
+    if (isInvalidApps) {
+      yield* sessionStore.update((data) => ({ ...data, lastPage: data.lastPage + 1 }));
+
+      const semaphore = yield* RegistrationSemaphore;
+
+      return yield* semaphore.withPermits(1)(registerFreeGames(user));
+    }
+
+    const gamesToFilter: GameContext[] = [];
+    for (const appId of appIdsToCheck) {
+      const app = apps[appId];
+      const common = app?.appinfo?.common as Record<string, unknown> | undefined;
+
+      if (!common) {
+        continue;
+      }
+
+      const isReleased = common.releasestate === 'released';
+      if (!isReleased) {
+        continue;
+      }
+
+      const isGameType = String(common.type).toLowerCase() === 'game';
+      if (!isGameType) {
+        continue;
+      }
+
+      const hasValidName = typeof common.name === 'string';
+      if (!hasValidName) {
+        continue;
+      }
+
+      const game: GameContext = {
+        name: String(common.name),
+        appId,
+      };
+
+      gamesToFilter.push(game);
+    }
+
+    const filteredGames = filterGames(gamesToFilter, { whitelist, blacklist });
+
+    if (filteredGames.length > 0) {
+      yield* sessionStore.update((data) => ({
+        ...data,
+        freeGameIds: HashSet.fromIterable([...data.freeGameIds, ...filteredGames.map((g) => g.appId)]),
+        freeGameList: [...data.freeGameList, ...filteredGames],
+      }));
+    }
+
+    yield* sessionStore.update((data) => ({ ...data, lastPage: data.lastPage + 1 }));
 
     const semaphore = yield* RegistrationSemaphore;
     yield* semaphore.withPermits(1)(registerFreeGames(user));

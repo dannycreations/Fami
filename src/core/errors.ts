@@ -24,10 +24,13 @@ export const catchAndLogUnlessTimeout =
   <B>(prefix: string, defaultValue: B) =>
   <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A | B, never, R> =>
     Effect.catchAll(effect, (cause) => {
-      if (isSteamErrorTimeout(cause)) {
+      const isTimeout = isSteamErrorTimeout(cause);
+
+      if (isTimeout) {
         return Effect.succeed(defaultValue);
       }
 
       const message = cause instanceof Error ? cause.message : String(cause);
+
       return Effect.logError(message, { prefix, cause }).pipe(Effect.as(defaultValue));
     });

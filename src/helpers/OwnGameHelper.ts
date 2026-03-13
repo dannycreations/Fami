@@ -15,7 +15,9 @@ export const collectOwnGames = (user: UserContext): Effect.Effect<void, never, S
     const sessionStore = yield* SessionStore;
 
     const steamId = yield* steamClient.steamID;
-    if (!steamId) {
+    const hasSteamId = !!steamId;
+
+    if (!hasSteamId) {
       return;
     }
 
@@ -34,21 +36,31 @@ export const collectOwnGames = (user: UserContext): Effect.Effect<void, never, S
       catchAndLogUnlessTimeout(`${user.username} OwnGame scanning failed`, []),
     );
 
-    const combinedGames = unionBy(
-      apps.map((a) => ({ appId: a.appid, name: a.name || 'unknown' })),
-      Array.from(whitelist).map((appId) => ({ appId, name: 'unknown' })),
-      (game: { readonly appId: number }) => game.appId,
-    );
+    const ownedGames = apps.map((a) => ({
+      appId: a.appid,
+      name: a.name || 'unknown',
+    }));
+
+    const whitelistGames = Array.from(whitelist).map((appId) => ({
+      appId,
+      name: 'unknown',
+    }));
+
+    const combinedGames = unionBy(ownedGames, whitelistGames, (game: { readonly appId: number }) => game.appId);
 
     const filteredGames = getFilteredGames(combinedGames, configData, user, sessionData.bannedGameIds);
 
     const newGames = filteredGames.filter((g) => !HashSet.has(sessionData.ownedGameIds, g.appId));
 
-    if (newGames.length > 0) {
-      yield* sessionStore.update((data) => ({
-        ...data,
-        ownedGameList: [...data.ownedGameList, ...newGames],
-        ownedGameIds: HashSet.fromIterable([...data.ownedGameIds, ...newGames.map((g) => g.appId)]),
-      }));
+    const hasNewGames = newGames.length > 0;
+
+    if (!hasNewGames) {
+      return;
     }
+
+    yield* sessionStore.update((data) => ({
+      ...data,
+      ownedGameList: [...data.ownedGameList, ...newGames],
+      ownedGameIds: HashSet.fromIterable([...data.ownedGameIds, ...newGames.map((g) => g.appId)]),
+    }));
   });

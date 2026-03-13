@@ -28,16 +28,15 @@ export const startIdleGames = (username: string): Effect.Effect<number, never, S
     const maxIdleTotal = Math.min(MAX_IDLE_GAMES, totalOwned);
     let idsToIdle: number[];
 
-    if (maxIdleTotal === totalOwned) {
-      idsToIdle = allOwnedIds.map((g) => g.appId);
-    } else {
-      const indices = Array.from({ length: totalOwned }, (_, i) => i);
-      for (let i = 0; i < maxIdleTotal; i++) {
-        const j = yield* Random.nextIntBetween(i, totalOwned - 1);
-        [indices[i], indices[j]] = [indices[j], indices[i]];
-      }
-      idsToIdle = indices.slice(0, maxIdleTotal).map((idx) => allOwnedIds[idx].appId);
+    const indices = Array.from({ length: totalOwned }, (_, i) => i);
+
+    for (let i = 0; i < maxIdleTotal; i++) {
+      const j = yield* Random.nextIntBetween(i, totalOwned - 1);
+      [indices[i], indices[j]] = [indices[j], indices[i]];
     }
+
+    const selectedIndices = indices.slice(0, maxIdleTotal);
+    idsToIdle = selectedIndices.map((idx) => allOwnedIds[idx].appId);
 
     yield* steamClient.setPersona(SteamUser.EPersonaState.Online);
     yield* steamClient.gamesPlayed(idsToIdle);

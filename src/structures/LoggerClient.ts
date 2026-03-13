@@ -129,7 +129,9 @@ export const LoggerClientLayer = (self: Logger.Logger<unknown, void>, logger: pi
       self,
       Logger.make(({ logLevel, message, cause }) => {
         // Ignore internal Effect errors
-        if (!Array.isArray(message)) return;
+        if (!Array.isArray(message)) {
+          return;
+        }
 
         const level = EFFECT_LEVEL_MAP[logLevel._tag] ?? 'info';
         if (cause && !Cause.isEmptyType(cause)) {

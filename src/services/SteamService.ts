@@ -66,15 +66,22 @@ const createEventStream = (user: SteamUser, community: SteamCommunity): Stream.S
     const onRefreshToken = (token: string) => emit.single({ _tag: 'RefreshToken', token });
     const onSteamGuard = (domain: string | null, callback: (code: string) => void, lastCodeWrong: boolean) =>
       emit.single({ _tag: 'SteamGuard', domain, callback, lastCodeWrong });
-    const onUser = (steamId: NonNullable<SteamUser['steamID']>, user: Record<string, unknown>) =>
+    const onUser = (steamId: NonNullable<SteamUser['steamID']>, user: Record<string, unknown>) => {
+      const personaStateRaw = user?.persona_state as number | undefined;
+      const playerNameRaw = user?.player_name as string | undefined;
+
+      const persona_state = personaStateRaw ?? null;
+      const player_name = playerNameRaw ?? null;
+
       emit.single({
         _tag: 'User',
         steamId,
         user: {
-          persona_state: (user?.persona_state as number | undefined) ?? null,
-          player_name: (user?.player_name as string | undefined) ?? null,
+          persona_state,
+          player_name,
         },
       });
+    };
     const onVacBans = (numBans: number, appids: number[]) => emit.single({ _tag: 'VacBans', numBans, appids });
 
     user.on('webSession', onWebSession);
@@ -122,20 +129,29 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, ne
     const wrapPromise = <A>(
       promise: () => Promise<A>,
       timeout: Duration.DurationInput = '30 seconds',
-    ): Effect.Effect<A, SteamError | Cause.TimeoutException> =>
-      Effect.tryPromise({
+    ): Effect.Effect<A, SteamError | Cause.TimeoutException> => {
+      const effect = Effect.tryPromise({
         try: promise,
         catch: (error) => {
           const err = error as Error & { readonly eresult?: number };
-          return isSteamErrorTimeout(err)
-            ? new Cause.TimeoutException()
-            : new SteamError({
-                message: err.message,
-                eresult: err.eresult,
-                cause: error,
-              });
+          const isTimeout = isSteamErrorTimeout(err);
+
+          if (isTimeout) {
+            return new Cause.TimeoutException();
+          }
+
+          const steamError = new SteamError({
+            message: err.message,
+            eresult: err.eresult,
+            cause: error,
+          });
+
+          return steamError;
         },
-      }).pipe(Effect.timeout(timeout), Effect.retry(RetryTimeoutPolicy));
+      });
+
+      return effect.pipe(Effect.timeout(timeout), Effect.retry(RetryTimeoutPolicy));
+    };
 
     return {
       user,

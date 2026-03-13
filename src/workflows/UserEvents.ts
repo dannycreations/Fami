@@ -45,7 +45,9 @@ export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, stat
     const config = yield* configStore.get;
     yield* sessionStore.setDelay(config.refreshGames);
 
-    if (user.family && user.family.length > 0) {
+    const hasFamily = user.family && user.family.length > 0;
+
+    if (hasFamily) {
       yield* Effect.promise(() => steamClient.user.getPersonas([...user.family!]));
     }
 
@@ -114,7 +116,9 @@ export const handleError = (user: UserContext, error: Error & { eresult?: number
     yield* state.reset();
     yield* Effect.logError(chalk`{red ${user.username} disconnected}`, error);
 
-    switch (error.eresult) {
+    const eresult = error.eresult;
+
+    switch (eresult) {
       case SteamUser.EResult.RateLimitExceeded: {
         yield* handleRateLimit(user);
         break;
@@ -146,20 +150,24 @@ export const handleVacBans = (user: UserContext, event: Extract<SteamEvent, { _t
     const configStore = yield* ConfigStoreTag;
     const sessionStore = yield* SessionStore;
 
-    if (event.numBans > 0) {
-      yield* Effect.logInfo(chalk`{bold.red ${user.username} has ${event.numBans} VAC ban(s)}`);
-      yield* Effect.logInfo(`- ${event.appids.join(', ').trim()}`);
+    const hasBans = event.numBans > 0;
 
-      const config = yield* configStore.get;
-      if (config.skipBannedGames) {
-        yield* sessionStore.update((data) => ({
-          ...data,
-          bannedGameIds: HashSet.fromIterable(event.appids),
-        }));
-      }
-    } else {
+    if (!hasBans) {
       yield* sessionStore.update((data) => ({ ...data, bannedGameIds: HashSet.empty() }));
-      yield* Effect.logInfo(`${user.username} has no VAC bans`);
+      return yield* Effect.logInfo(`${user.username} has no VAC bans`);
+    }
+
+    yield* Effect.logInfo(chalk`{bold.red ${user.username} has ${event.numBans} VAC_ban(s)}`);
+    yield* Effect.logInfo(`- ${event.appids.join(', ').trim()}`);
+
+    const config = yield* configStore.get;
+    const shouldSkipBanned = config.skipBannedGames;
+
+    if (shouldSkipBanned) {
+      yield* sessionStore.update((data) => ({
+        ...data,
+        bannedGameIds: HashSet.fromIterable(event.appids),
+      }));
     }
   });
 
@@ -174,29 +182,46 @@ export const handleUserUpdate = (
     const userId = event.steamId.toString();
     const personaState = event.user.persona_state;
 
-    if (!(userId in family) || (family[userId] !== -1 && personaState === null)) {
+    const isUserInFamily = userId in family;
+    if (!isUserInFamily) {
+      return;
+    }
+
+    const isPersonaStateUnknown = family[userId] !== -1 && personaState === null;
+    if (isPersonaStateUnknown) {
       return;
     }
 
     const steamId = yield* steamClient.steamID;
     const selfId = steamId?.toString();
+    if (selfId === userId) {
+      return;
+    }
 
-    if (selfId === userId || user.id === userId) {
+    if (user.id === userId) {
       return;
     }
 
     const userPersona = personaState ?? SteamUser.EPersonaState.Offline;
     const isUserOffline = (USER_OFFLINE_STATE as readonly number[]).includes(userPersona);
 
-    yield* Ref.update(state.state, (s) => ({ ...s, family: { ...s.family, [userId]: userPersona } }));
+    const nextFamilyState = { ...family, [userId]: userPersona };
+    yield* Ref.update(state.state, (s) => ({ ...s, family: nextFamilyState }));
 
-    if (!isUserOffline && (isEnabled || isPlaying)) {
-      yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false, isPlaying: false }));
-      yield* state.setGamesPlayed([]);
-
-      const playerName = event.user.player_name || 'FamilyMember';
-      yield* Effect.logInfo(chalk`{yellow ${user.username} paused: ${playerName} is online}`);
+    if (isUserOffline) {
+      return;
     }
+
+    const shouldSkipUpdate = !isEnabled && !isPlaying;
+    if (shouldSkipUpdate) {
+      return;
+    }
+
+    yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false, isPlaying: false }));
+    yield* state.setGamesPlayed([]);
+
+    const playerName = event.user.player_name || 'FamilyMember';
+    yield* Effect.logInfo(chalk`{yellow ${user.username} paused: ${playerName} is online}`);
   });
 
 export const handleSteamEvent = (event: SteamEvent, user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
@@ -204,20 +229,32 @@ export const handleSteamEvent = (event: SteamEvent, user: UserContext, steamClie
     const configStore = yield* ConfigStoreTag;
 
     switch (event._tag) {
-      case 'LoggedOn':
+      case 'LoggedOn': {
         return yield* handleLoggedOn(user, steamClient, state);
-      case 'RefreshToken':
+      }
+      case 'RefreshToken': {
         return yield* configStore.update((cfg) => ({
           ...cfg,
-          users: cfg.users.map((u) => (u.username === user.username ? { ...u, refreshToken: event.token } : u)),
+          users: cfg.users.map((u) => {
+            if (u.username !== user.username) {
+              return u;
+            }
+
+            return { ...u, refreshToken: event.token };
+          }),
         }));
-      case 'SteamGuard':
+      }
+      case 'SteamGuard': {
         return yield* handleSteamGuard(user, event);
-      case 'Error':
+      }
+      case 'Error': {
         return yield* handleError(user, event.error, state);
-      case 'VacBans':
+      }
+      case 'VacBans': {
         return yield* handleVacBans(user, event);
-      case 'User':
+      }
+      case 'User': {
         return yield* handleUserUpdate(user, event, steamClient, state);
+      }
     }
   });
