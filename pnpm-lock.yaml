@@ -15,8 +15,8 @@ importers:
         specifier: ^17.3.1
         version: 17.3.1
       effect:
-        specifier: ^3.19.19
-        version: 3.19.19
+        specifier: ^3.20.0
+        version: 3.20.0
       got:
         specifier: 11.8.6
         version: 11.8.6
@@ -36,8 +36,8 @@ importers:
         specifier: ^3.49.0
         version: 3.49.0
       user-agents:
-        specifier: ^1.1.671
-        version: 1.1.671
+        specifier: ^2.1.4
+        version: 2.1.4
     devDependencies:
       '@ianvs/prettier-plugin-sort-imports':
         specifier: ^4.7.1
@@ -64,8 +64,8 @@ importers:
         specifier: ^9.1.7
         version: 9.1.7
       npm-check-updates:
-        specifier: ^19.6.3
-        version: 19.6.3
+        specifier: ^19.6.5
+        version: 19.6.5
       prettier:
         specifier: ^3.8.1
         version: 3.8.1
@@ -608,8 +608,8 @@ packages:
   ecc-jsbn@0.1.2:
     resolution: {integrity: sha512-eh9O+hwRHNbG4BLTjEl3nw044CkGm5X6LoaCf7LPp7UU8Qrt47JYNi6nPX8xjW97TKGKm1ouctg0QSpZe9qrnw==}
 
-  effect@3.19.19:
-    resolution: {integrity: sha512-Yc8U/SVXo2dHnaP7zNBlAo83h/nzSJpi7vph6Hzyl4ulgMBIgPmz3UzOjb9sBgpFE00gC0iETR244sfXDNLHRg==}
+  effect@3.20.0:
+    resolution: {integrity: sha512-qMLfDJscrNG8p/aw+IkT9W7fgj50Z4wG5bLBy0Txsxz8iUHjDIkOgO3SV0WZfnQbNG2VJYb0b+rDLMrhM4+Krw==}
 
   end-of-stream@1.4.5:
     resolution: {integrity: sha512-ooEGc6HP26xXq/N+GCGOT0JKCLDGrq2bQUZrQ7gyrJiZANJ/8YDTxTpQBXGMn+WbIQXNVpyWymm7KYVICQnyOg==}
@@ -835,9 +835,6 @@ packages:
   lodash.bind@4.2.1:
     resolution: {integrity: sha512-lxdsn7xxlCymgLYo1gGvVrfHmkjDiyqVv62FAeF2i5ta72BipE1SLxw8hPEPLhD4/247Ijw07UQH7Hq/chT5LA==}
 
-  lodash.clonedeep@4.5.0:
-    resolution: {integrity: sha512-H5ZhCF25riFd9uB5UCkVKo61m3S/xZk1x4wA6yp/L3RFP6Z/eHH1ymQcGLo7J3GMPfm0V/7m1tryHuGVxpqEBQ==}
-
   lodash.defaults@4.2.0:
     resolution: {integrity: sha512-qjxPLHd3r5DnsdGacqOMU6pb/avJzdh9tFX2ymgoZE27BmjXrNy/y4LoaiTeAb+O3gL8AfpJGtqfX/ae2leYYQ==}
 
@@ -941,8 +938,8 @@ packages:
     resolution: {integrity: sha512-DlL+XwOy3NxAQ8xuC0okPgK46iuVNAK01YN7RueYBqqFeGsBjV9XmCAzAdgt+667bCl5kPh9EqKKDwnaPG1I7A==}
     engines: {node: '>=10'}
 
-  npm-check-updates@19.6.3:
-    resolution: {integrity: sha512-VAt9Bp26eLaymZ0nZyh5n/by+YZIuegXlvWR0yv1zBqd984f8VnEnBbn+1lS3nN5LyEjn62BJ+yYgzNSpb6Gzg==}
+  npm-check-updates@19.6.5:
+    resolution: {integrity: sha512-XlBUMC30relXfEerrnX239W9iB30U6Woz0Hj42Sv6iSF4EGOvj2mS2r45sZ3RglH0VPBxXOWooMxObZ/SMZhrw==}
     engines: {node: '>=20.0.0', npm: '>=8.12.1'}
     hasBin: true
 
@@ -1199,8 +1196,9 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
-  user-agents@1.1.671:
-    resolution: {integrity: sha512-f6nnYA/kvDbJsEYRnsCJZqDC6PUZmcBW5wd42jWi24o31XUEZ6QGfPs4CpzXGCWKeL6bLdKmM+5czx+GxNvX5A==}
+  user-agents@2.1.4:
+    resolution: {integrity: sha512-8ZatJjWOjsrae0RnCSOP9EAxFWLXS15RDd/fS3gTpCqjWM2w/0Ypw3t29iwEjbYXbgjYvQDK89upHsmAQ6GhXQ==}
+    engines: {node: '>=18'}
 
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
@@ -1737,7 +1735,7 @@ snapshots:
       jsbn: 0.1.1
       safer-buffer: 2.1.2
 
-  effect@3.19.19:
+  effect@3.20.0:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 3.23.2
@@ -1987,8 +1985,6 @@ snapshots:
 
   lodash.bind@4.2.1: {}
 
-  lodash.clonedeep@4.5.0: {}
-
   lodash.defaults@4.2.0: {}
 
   lodash.filter@4.6.0: {}
@@ -2051,7 +2047,7 @@ snapshots:
 
   normalize-url@6.1.0: {}
 
-  npm-check-updates@19.6.3: {}
+  npm-check-updates@19.6.5: {}
 
   nth-check@1.0.2:
     dependencies:
@@ -2384,9 +2380,7 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  user-agents@1.1.671:
-    dependencies:
-      lodash.clonedeep: 4.5.0
+  user-agents@2.1.4: {}
 
   util-deprecate@1.0.2: {}
 

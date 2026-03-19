@@ -54,7 +54,7 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
         const shouldPause = hasFamilyOnline && (isEnabled || isPlaying);
 
         if (shouldPause) {
-          yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false, isPlaying: false }));
+          yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false }));
           yield* state.setGamesPlayed([]);
         }
 
@@ -81,7 +81,6 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
 
           if (isPlaying) {
             yield* state.setGamesPlayed([]);
-            yield* Ref.update(state.state, (s) => ({ ...s, isPlaying: false }));
           }
 
           return;

@@ -217,7 +217,7 @@ export const handleUserUpdate = (
       return;
     }
 
-    yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false, isPlaying: false }));
+    yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false }));
     yield* state.setGamesPlayed([]);
 
     const playerName = event.user.player_name || 'FamilyMember';
