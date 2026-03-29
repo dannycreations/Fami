@@ -1,7 +1,18 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Effect-TS/language-service/main/schema.json",
   "extends": ["@sapphire/ts-config", "@sapphire/ts-config/extra-strict", "@sapphire/ts-config/decorators"],
   "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "diagnosticSeverity": {
+          "preferSchemaOverJson": "off"
+        }
+      }
+    ],
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo",
     "outDir": "dist",
+    "rootDir": "src",
     "skipLibCheck": true,
     "stripInternal": true,
     "removeComments": true,

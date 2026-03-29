@@ -45,7 +45,7 @@ export const cycleUntilMidnight: Effect.Effect<never, RuntimeRestart> = Effect.g
 
   yield* Effect.sleep(`${msUntilMidnight} millis`);
   yield* Effect.logInfo(chalk`{bold.yellow It's midnight time. Restarting app...}`);
-  return yield* Effect.fail(new RuntimeRestart());
+  return yield* new RuntimeRestart();
 });
 
 export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: RuntimeCycleOptions = {}): void => {
@@ -82,8 +82,7 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
 
           if (nextRestarts.length >= maxRestarts) {
             yield* Effect.logFatal(chalk`{bold.red System crashed too many times. Shutting down...}`, cause);
-            yield* Effect.sync(() => process.exit(1));
-            return;
+            return yield* Effect.sync(() => process.exit(1));
           }
 
           yield* Effect.logError(chalk`{bold.red System encountered an error}`, cause);

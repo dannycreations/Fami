@@ -7,6 +7,6 @@
 ## Commands
 
 ```cmd
-# Check for compilation errors
+# Check for static errors
 npm run build
 ```

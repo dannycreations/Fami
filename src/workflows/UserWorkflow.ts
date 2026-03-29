@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { chalk } from '@vegapunk/utilities';
-import { Cause, Deferred, Effect, Ref, Schedule, Stream } from 'effect';
+import { Cause, Deferred, Effect, Layer, Ref, Schedule, Stream } from 'effect';
 import SteamUser from 'steam-user';
 
 import { AuthError } from '../core/errors';
@@ -112,7 +112,7 @@ const tryLogin = (user: UserContext, steamClient: SteamClient) =>
         : null;
 
     if (!loginDetails) {
-      return yield* Effect.fail(new AuthError({ message: `No credentials found for ${user.username}` }));
+      return yield* new AuthError({ message: `No credentials found for ${user.username}` });
     }
 
     yield* waitForConnection();
@@ -175,7 +175,7 @@ const createUserSession = (user: UserContext) =>
 
       if (isNotPlayingWhileEnabled) {
         yield* Effect.logInfo(chalk`${user.username} not playing games after 1 minute of login`);
-        return yield* Effect.fail(new Cause.TimeoutException());
+        return yield* new Cause.TimeoutException();
       }
     });
 
@@ -197,8 +197,9 @@ export const runUserWorkflow = (user: UserContext) =>
     const sessionPath = join(sessionDir, 'session.json');
 
     yield* createUserSession(user).pipe(
-      Effect.provide(SteamClientLayer(sessionDir)),
-      Effect.provide(StoreClientLayer(SessionStore, sessionPath, SessionContext, INITIAL_SESSION, 600_000)),
+      Effect.provide(
+        Layer.mergeAll(SteamClientLayer(sessionDir), StoreClientLayer(SessionStore, sessionPath, SessionContext, INITIAL_SESSION, 600_000)),
+      ),
       Effect.retry(
         Schedule.spaced('10 seconds').pipe(Schedule.tapInput(() => Effect.logInfo(chalk`{yellow Retrying workflow for ${user.username}...}`))),
       ),
