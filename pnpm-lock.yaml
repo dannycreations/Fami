@@ -12,8 +12,8 @@ importers:
         specifier: ^1.0.79
         version: 1.0.79(typescript@6.0.2)
       dotenv:
-        specifier: ^17.3.1
-        version: 17.3.1
+        specifier: ^17.4.0
+        version: 17.4.0
       effect:
         specifier: ^3.21.0
         version: 3.21.0
@@ -36,12 +36,12 @@ importers:
         specifier: ^3.50.0
         version: 3.50.0
       user-agents:
-        specifier: ^2.1.14
-        version: 2.1.14
+        specifier: ^2.1.20
+        version: 2.1.20
     devDependencies:
       '@effect/language-service':
-        specifier: ^0.84.2
-        version: 0.84.2
+        specifier: ^0.84.3
+        version: 0.84.3
       '@ianvs/prettier-plugin-sort-imports':
         specifier: ^4.7.1
         version: 4.7.1(prettier@3.8.1)
@@ -67,8 +67,8 @@ importers:
         specifier: ^9.1.7
         version: 9.1.7
       npm-check-updates:
-        specifier: ^19.6.6
-        version: 19.6.6
+        specifier: ^20.0.0
+        version: 20.0.0
       prettier:
         specifier: ^3.8.1
         version: 3.8.1
@@ -145,8 +145,8 @@ packages:
   '@doctormckay/user-agents@1.0.0':
     resolution: {integrity: sha512-F+sL1YmebZTY2CnjoR9BXFEULpq7y8dxyLx48LZVa0BSDseXdLG/DtPISfM1iNv1XKCeiBzVNfAT/MOQ69v1Zw==}
 
-  '@effect/language-service@0.84.2':
-    resolution: {integrity: sha512-l04qNxpiA8rY5yXWckRPJ7Mk5MNerXuNymSFf+IdflfI5i8jgL1bpBNLuP6ijg7wgjdHc/KmTnCj2kT0SCntuA==}
+  '@effect/language-service@0.84.3':
+    resolution: {integrity: sha512-zpxi6rLCwst/cBQd7ElwDvt36Y6Jvz8v6bCLnNiOL6OXvdLmqjOFWyzWZdMh92vvBQA/aVKhfIAAOP3o4wKt0A==}
     hasBin: true
 
   '@esbuild/aix-ppc64@0.27.1':
@@ -604,8 +604,8 @@ packages:
   domutils@1.7.0:
     resolution: {integrity: sha512-Lgd2XcJ/NjEw+7tFvfKxOzCYKZsdct5lczQ2ZaQY8Djz7pfAD3Gbp8ySJWtreII/vDlMVmxwa6pHmdxIYgttDg==}
 
-  dotenv@17.3.1:
-    resolution: {integrity: sha512-IO8C/dzEb6O3F9/twg6ZLXz164a2fhTnEWb95H23Dm4OuN+92NmEAlTrupP9VW6Jm3sO26tQlqyvyi4CsnY9GA==}
+  dotenv@17.4.0:
+    resolution: {integrity: sha512-kCKF62fwtzwYm0IGBNjRUjtJgMfGapII+FslMHIjMR5KTnwEmBmWLDRSnc3XSNP8bNy34tekgQyDT0hr7pERRQ==}
     engines: {node: '>=12'}
 
   dunder-proto@1.0.1:
@@ -945,8 +945,8 @@ packages:
     resolution: {integrity: sha512-DlL+XwOy3NxAQ8xuC0okPgK46iuVNAK01YN7RueYBqqFeGsBjV9XmCAzAdgt+667bCl5kPh9EqKKDwnaPG1I7A==}
     engines: {node: '>=10'}
 
-  npm-check-updates@19.6.6:
-    resolution: {integrity: sha512-AvlRcnlUEyBEJfblUSjYMJwYKvCIWDRuCDa6x3hyUMTMkI3kslmFm0LDqwgzQfshfNh0Z3ouKiA4fLjRN7HejQ==}
+  npm-check-updates@20.0.0:
+    resolution: {integrity: sha512-qCs02x51irGf0okCttwv8lHEO2NxT903IJ2bKpG82kIzkm6pfT3CoWB5YIvqY/wi/DdnYRfI7eVfCYYymQgvCg==}
     engines: {node: '>=20.0.0', npm: '>=8.12.1'}
     hasBin: true
 
@@ -1203,8 +1203,8 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
-  user-agents@2.1.14:
-    resolution: {integrity: sha512-BkYx34QZ2DiFk1n1KlSAbLu4otwI/w10k7u0Nmq+pSy6RmMpTrhlh3+3hzHG43xqU7SQewcbio8/UVOQE583nQ==}
+  user-agents@2.1.20:
+    resolution: {integrity: sha512-zK70orJduSzSJIqD/SWlK3lVwHORfz7bw/sacyxSCwSDPGhtDWplUHbHuLc/S+2/VzW2kwGVi2eKp6ORcxCtYw==}
     engines: {node: '>=18'}
 
   util-deprecate@1.0.2:
@@ -1334,7 +1334,7 @@ snapshots:
 
   '@doctormckay/user-agents@1.0.0': {}
 
-  '@effect/language-service@0.84.2': {}
+  '@effect/language-service@0.84.3': {}
 
   '@esbuild/aix-ppc64@0.27.1':
     optional: true
@@ -1731,7 +1731,7 @@ snapshots:
       dom-serializer: 0.1.1
       domelementtype: 1.3.1
 
-  dotenv@17.3.1: {}
+  dotenv@17.4.0: {}
 
   dunder-proto@1.0.1:
     dependencies:
@@ -2056,7 +2056,7 @@ snapshots:
 
   normalize-url@6.1.0: {}
 
-  npm-check-updates@19.6.6: {}
+  npm-check-updates@20.0.0: {}
 
   nth-check@1.0.2:
     dependencies:
@@ -2389,7 +2389,7 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  user-agents@2.1.14: {}
+  user-agents@2.1.20: {}
 
   util-deprecate@1.0.2: {}
 
