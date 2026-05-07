@@ -90,7 +90,7 @@ export const makeStoreClient = <A extends object, I, R>(
       Effect.catchAll((error) =>
         Effect.gen(function* () {
           yield* Effect.logWarning(`Store validation failed for ${filePath}, merging with defaults`);
-          yield* Effect.logDebug(error);
+          yield* Effect.logDebug(error.message);
 
           const partialDecode = Schema.decodeUnknown(Schema.partial(schema));
           const partial = yield* partialDecode(rawData).pipe(Effect.catchAll(() => Effect.succeed({})));

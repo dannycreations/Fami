@@ -196,12 +196,27 @@ export const runUserWorkflow = (user: UserContext) =>
     const sessionDir = join(process.cwd(), 'sessions', user.username);
     const sessionPath = join(sessionDir, 'session.json');
 
-    yield* createUserSession(user).pipe(
+    const configStore = yield* ConfigStoreTag;
+    const currentUser = yield* configStore.get.pipe(Effect.map((cfg) => cfg.users.find((u) => u.username === user.username) ?? user));
+
+    yield* createUserSession(currentUser).pipe(
       Effect.provide(
         Layer.mergeAll(SteamClientLayer(sessionDir), StoreClientLayer(SessionStore, sessionPath, SessionContext, INITIAL_SESSION, 600_000)),
       ),
       Effect.retry(
-        Schedule.spaced('10 seconds').pipe(Schedule.tapInput(() => Effect.logInfo(chalk`{yellow Retrying workflow for ${user.username}...}`))),
+        Schedule.spaced('10 seconds').pipe(
+          Schedule.tapInput((error) =>
+            Effect.gen(function* () {
+              const isAuthError = error instanceof AuthError;
+              if (isAuthError) {
+                yield* Effect.logError(chalk`{bold.red ${user.username} authentication failed: ${error.message}. Stopping workflow.}`);
+              } else {
+                yield* Effect.logInfo(chalk`{yellow Retrying workflow for ${user.username}...}`);
+              }
+            }),
+          ),
+          Schedule.whileInput((error) => !(error instanceof AuthError)),
+        ),
       ),
     );
   });

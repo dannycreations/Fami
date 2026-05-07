@@ -71,7 +71,7 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
           });
 
           if (hasRestart) {
-            return;
+            return yield* Effect.void;
           }
 
           const now = yield* Effect.sync(() => Date.now());
@@ -82,12 +82,13 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
 
           if (nextRestarts.length >= maxRestarts) {
             yield* Effect.logFatal(chalk`{bold.red System crashed too many times. Shutting down...}`, cause);
-            return yield* Effect.sync(() => process.exit(1));
+            return yield* Effect.promise(() => process.exit(1));
           }
 
           yield* Effect.logError(chalk`{bold.red System encountered an error}`, cause);
           yield* Effect.logInfo(chalk`{bold.yellow System restarting in ${restartDelayMs / 1000} seconds...}`);
           yield* Effect.sleep(`${restartDelayMs} millis`);
+          return yield* Effect.void;
         }),
       ),
       Effect.repeat(Schedule.forever),

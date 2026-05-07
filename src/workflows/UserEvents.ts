@@ -39,7 +39,9 @@ export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, stat
 
     yield* configStore.update((cfg) => ({
       ...cfg,
-      users: cfg.users.map((u) => (u.username === user.username ? { ...u, id: steamIdString } : u)),
+      users: cfg.users.map((u) =>
+        u.username === user.username ? { ...u, id: steamIdString, password: u.refreshToken ? undefined : u.password } : u,
+      ),
     }));
 
     const config = yield* configStore.get;

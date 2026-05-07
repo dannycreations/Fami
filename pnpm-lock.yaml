@@ -10,13 +10,13 @@ importers:
     dependencies:
       '@vegapunk/utilities':
         specifier: ^1.0.79
-        version: 1.0.79(typescript@6.0.2)
+        version: 1.0.79(typescript@6.0.3)
       dotenv:
-        specifier: ^17.4.0
-        version: 17.4.0
+        specifier: ^17.4.2
+        version: 17.4.2
       effect:
-        specifier: ^3.21.0
-        version: 3.21.0
+        specifier: ^3.21.2
+        version: 3.21.2
       got:
         specifier: 11.8.6
         version: 11.8.6
@@ -36,15 +36,15 @@ importers:
         specifier: ^3.50.0
         version: 3.50.0
       user-agents:
-        specifier: ^2.1.20
-        version: 2.1.20
+        specifier: ^2.1.53
+        version: 2.1.53
     devDependencies:
       '@effect/language-service':
-        specifier: ^0.84.3
-        version: 0.84.3
+        specifier: ^0.85.1
+        version: 0.85.1
       '@ianvs/prettier-plugin-sort-imports':
         specifier: ^4.7.1
-        version: 4.7.1(prettier@3.8.1)
+        version: 4.7.1(prettier@3.8.3)
       '@sapphire/ts-config':
         specifier: ^5.0.3
         version: 5.0.3
@@ -58,8 +58,8 @@ importers:
         specifier: ^5.1.1
         version: 5.1.1
       '@types/steamcommunity':
-        specifier: ^3.43.8
-        version: 3.43.8
+        specifier: ^3.50.0
+        version: 3.50.0
       '@types/user-agents':
         specifier: ^1.0.4
         version: 1.0.4
@@ -67,11 +67,11 @@ importers:
         specifier: ^9.1.7
         version: 9.1.7
       npm-check-updates:
-        specifier: ^20.0.0
-        version: 20.0.0
+        specifier: ^22.1.1
+        version: 22.1.1
       prettier:
-        specifier: ^3.8.1
-        version: 3.8.1
+        specifier: ^3.8.3
+        version: 3.8.3
       rimraf:
         specifier: ^6.1.3
         version: 6.1.3
@@ -79,8 +79,8 @@ importers:
         specifier: ^4.21.0
         version: 4.21.0
       typescript:
-        specifier: ^6.0.2
-        version: 6.0.2
+        specifier: ^6.0.3
+        version: 6.0.3
 
 packages:
 
@@ -145,8 +145,8 @@ packages:
   '@doctormckay/user-agents@1.0.0':
     resolution: {integrity: sha512-F+sL1YmebZTY2CnjoR9BXFEULpq7y8dxyLx48LZVa0BSDseXdLG/DtPISfM1iNv1XKCeiBzVNfAT/MOQ69v1Zw==}
 
-  '@effect/language-service@0.84.3':
-    resolution: {integrity: sha512-zpxi6rLCwst/cBQd7ElwDvt36Y6Jvz8v6bCLnNiOL6OXvdLmqjOFWyzWZdMh92vvBQA/aVKhfIAAOP3o4wKt0A==}
+  '@effect/language-service@0.85.1':
+    resolution: {integrity: sha512-EXnJjIy6zQ3nUO/MZ+ynWUb8B895KZPotd1++oTs9JjDkplwM7cb6zo8Zq2zU6piwq+KflO7amXbEfj1UMpHkw==}
     hasBin: true
 
   '@esbuild/aix-ppc64@0.27.1':
@@ -427,8 +427,8 @@ packages:
   '@types/steam-user@5.1.1':
     resolution: {integrity: sha512-jYAsDpp30eC+/EWwG9Ea2qyGuKBWsTXgl7qVUiAMP3YtsCJi4/rCj0w8W8167RdhrkY7FhSC0OScQt5fYK8cGQ==}
 
-  '@types/steamcommunity@3.43.8':
-    resolution: {integrity: sha512-q742mcnxjiT3t0TyjhoTEpzmy1JI8L/p7nvvPBwNdArgjgb/5n5aWgKK8RavKIizAJ7AgjyEEfJNBY2ax8kFNw==}
+  '@types/steamcommunity@3.50.0':
+    resolution: {integrity: sha512-IueOZ7dTGEpWMh8kHmsromivMFGI3tH3d/jMor23KmFQBb6R10SW/dlU9tGUJ8nH02IlwizdFR7bjhbCtP8niA==}
 
   '@types/steamid@2.0.3':
     resolution: {integrity: sha512-ozNMQViUYLU+NBN4v7X0bV1O8uTL1bA+WvfHtt9IKcydS4tyYKH7w1vq+xcPGWGL0PRhGtY7C1Zhaeyj2IsETw==}
@@ -604,8 +604,8 @@ packages:
   domutils@1.7.0:
     resolution: {integrity: sha512-Lgd2XcJ/NjEw+7tFvfKxOzCYKZsdct5lczQ2ZaQY8Djz7pfAD3Gbp8ySJWtreII/vDlMVmxwa6pHmdxIYgttDg==}
 
-  dotenv@17.4.0:
-    resolution: {integrity: sha512-kCKF62fwtzwYm0IGBNjRUjtJgMfGapII+FslMHIjMR5KTnwEmBmWLDRSnc3XSNP8bNy34tekgQyDT0hr7pERRQ==}
+  dotenv@17.4.2:
+    resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
 
   dunder-proto@1.0.1:
@@ -615,8 +615,8 @@ packages:
   ecc-jsbn@0.1.2:
     resolution: {integrity: sha512-eh9O+hwRHNbG4BLTjEl3nw044CkGm5X6LoaCf7LPp7UU8Qrt47JYNi6nPX8xjW97TKGKm1ouctg0QSpZe9qrnw==}
 
-  effect@3.21.0:
-    resolution: {integrity: sha512-PPN80qRokCd1f015IANNhrwOnLO7GrrMQfk4/lnZRE/8j7UPWrNNjPV0uBrZutI/nHzernbW+J0hdqQysHiSnQ==}
+  effect@3.21.2:
+    resolution: {integrity: sha512-rXd2FGDM8KdjSIrc+mqEELo7ScW7xTVxEf1iInmPSpIde9/nyGuFM710cjTo7/EreGXiUX2MOonPpprbz2XHCg==}
 
   end-of-stream@1.4.5:
     resolution: {integrity: sha512-ooEGc6HP26xXq/N+GCGOT0JKCLDGrq2bQUZrQ7gyrJiZANJ/8YDTxTpQBXGMn+WbIQXNVpyWymm7KYVICQnyOg==}
@@ -945,9 +945,9 @@ packages:
     resolution: {integrity: sha512-DlL+XwOy3NxAQ8xuC0okPgK46iuVNAK01YN7RueYBqqFeGsBjV9XmCAzAdgt+667bCl5kPh9EqKKDwnaPG1I7A==}
     engines: {node: '>=10'}
 
-  npm-check-updates@20.0.0:
-    resolution: {integrity: sha512-qCs02x51irGf0okCttwv8lHEO2NxT903IJ2bKpG82kIzkm6pfT3CoWB5YIvqY/wi/DdnYRfI7eVfCYYymQgvCg==}
-    engines: {node: '>=20.0.0', npm: '>=8.12.1'}
+  npm-check-updates@22.1.1:
+    resolution: {integrity: sha512-uWSxJW25dy5ZM4SdLsi0VBgPSJlo7u+jARQ6Xql+85YYCoqXU2ZaympAZ6237/oybCq/I4nXddE9S9BTwBfBXA==}
+    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0, npm: '>=10.0.0'}
     hasBin: true
 
   nth-check@1.0.2:
@@ -998,8 +998,8 @@ packages:
     resolution: {integrity: sha512-r34yH/GlQpKZbU1BvFFqOjhISRo1MNx1tWYsYvmj6KIRHSPMT2+yHOEb1SG6NMvRoHRF0a07kCOox/9yakl1vg==}
     hasBin: true
 
-  prettier@3.8.1:
-    resolution: {integrity: sha512-UOnG6LftzbdaHZcKoPFtOcCKztrQ57WkHDeRD9t/PTQtmT0NHSeWWepj6pS0z/N7+08BHFDQVUrfmfMRcZwbMg==}
+  prettier@3.8.3:
+    resolution: {integrity: sha512-7igPTM53cGHMW8xWuVTydi2KO233VFiTNyF5hLJqpilHfmn8C8gPf+PS7dUT64YcXFbiMGZxS9pCSxL/Dxm/Jw==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -1192,8 +1192,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  typescript@6.0.2:
-    resolution: {integrity: sha512-bGdAIrZ0wiGDo5l8c++HWtbaNCWTS4UTv7RaTH/ThVIgjkveJt83m74bBHMJkuCbslY8ixgLBVZJIOiQlQTjfQ==}
+  typescript@6.0.3:
+    resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -1203,8 +1203,8 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
-  user-agents@2.1.20:
-    resolution: {integrity: sha512-zK70orJduSzSJIqD/SWlK3lVwHORfz7bw/sacyxSCwSDPGhtDWplUHbHuLc/S+2/VzW2kwGVi2eKp6ORcxCtYw==}
+  user-agents@2.1.53:
+    resolution: {integrity: sha512-jb9Z4ggTUczHR+jV1g2ldNjLpvxgYGtnEYgc+yvUxaT8PQuTOQLidxGaAiKEqTKma0tWtIuBNgJ2eUi/LjjY2Q==}
     engines: {node: '>=18'}
 
   util-deprecate@1.0.2:
@@ -1334,7 +1334,7 @@ snapshots:
 
   '@doctormckay/user-agents@1.0.0': {}
 
-  '@effect/language-service@0.84.3': {}
+  '@effect/language-service@0.85.1': {}
 
   '@esbuild/aix-ppc64@0.27.1':
     optional: true
@@ -1414,13 +1414,13 @@ snapshots:
   '@esbuild/win32-x64@0.27.1':
     optional: true
 
-  '@ianvs/prettier-plugin-sort-imports@4.7.1(prettier@3.8.1)':
+  '@ianvs/prettier-plugin-sort-imports@4.7.1(prettier@3.8.3)':
     dependencies:
       '@babel/generator': 7.28.0
       '@babel/parser': 7.28.0
       '@babel/traverse': 7.28.0
       '@babel/types': 7.28.2
-      prettier: 3.8.1
+      prettier: 3.8.3
       semver: 7.7.2
     transitivePeerDependencies:
       - supports-color
@@ -1533,7 +1533,7 @@ snapshots:
       '@types/node': 24.10.4
       '@types/steamid': 2.0.3
 
-  '@types/steamcommunity@3.43.8':
+  '@types/steamcommunity@3.50.0':
     dependencies:
       '@types/node': 24.10.4
       '@types/request': 2.48.13
@@ -1545,7 +1545,7 @@ snapshots:
 
   '@types/user-agents@1.0.4': {}
 
-  '@vegapunk/utilities@1.0.79(typescript@6.0.2)':
+  '@vegapunk/utilities@1.0.79(typescript@6.0.3)':
     dependencies:
       '@sapphire/result': 2.8.0
       chalk: 4.1.2
@@ -1554,7 +1554,7 @@ snapshots:
       humanize-duration: 3.33.2
       jsonc-parser: 3.3.1
       nanoid: 3.3.11
-      valibot: 1.2.0(typescript@6.0.2)
+      valibot: 1.2.0(typescript@6.0.3)
       zustand: 5.0.10
     transitivePeerDependencies:
       - '@types/react'
@@ -1731,7 +1731,7 @@ snapshots:
       dom-serializer: 0.1.1
       domelementtype: 1.3.1
 
-  dotenv@17.4.0: {}
+  dotenv@17.4.2: {}
 
   dunder-proto@1.0.1:
     dependencies:
@@ -1744,7 +1744,7 @@ snapshots:
       jsbn: 0.1.1
       safer-buffer: 2.1.2
 
-  effect@3.21.0:
+  effect@3.21.2:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 3.23.2
@@ -2056,7 +2056,7 @@ snapshots:
 
   normalize-url@6.1.0: {}
 
-  npm-check-updates@20.0.0: {}
+  npm-check-updates@22.1.1: {}
 
   nth-check@1.0.2:
     dependencies:
@@ -2123,7 +2123,7 @@ snapshots:
       sonic-boom: 4.2.0
       thread-stream: 4.0.0
 
-  prettier@3.8.1: {}
+  prettier@3.8.3: {}
 
   process-warning@5.0.0: {}
 
@@ -2381,7 +2381,7 @@ snapshots:
 
   typescript@5.4.5: {}
 
-  typescript@6.0.2: {}
+  typescript@6.0.3: {}
 
   undici-types@7.16.0: {}
 
@@ -2389,15 +2389,15 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  user-agents@2.1.20: {}
+  user-agents@2.1.53: {}
 
   util-deprecate@1.0.2: {}
 
   uuid@3.4.0: {}
 
-  valibot@1.2.0(typescript@6.0.2):
+  valibot@1.2.0(typescript@6.0.3):
     optionalDependencies:
-      typescript: 6.0.2
+      typescript: 6.0.3
 
   verror@1.10.0:
     dependencies:
