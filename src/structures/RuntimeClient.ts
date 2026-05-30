@@ -44,7 +44,7 @@ export const cycleUntilMidnight: Effect.Effect<never, RuntimeRestart> = Effect.g
   });
 
   yield* Effect.sleep(`${msUntilMidnight} millis`);
-  yield* Effect.logInfo(chalk`{bold.yellow It's midnight time. Restarting app...}`);
+  yield* Effect.logInfo(chalk`{bold.yellow It's midnight time. Restarting system...}`);
   return yield* new RuntimeRestart();
 });
 
@@ -62,16 +62,11 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
         Effect.gen(function* () {
           const failures = Cause.failures(cause);
           const hasRestart = Chunk.some(failures, (error: unknown): error is RuntimeRestart => {
-            const isError = isErrorLike<{ readonly _tag: string }>(error);
-            if (!isError) {
-              return false;
-            }
-
-            return error._tag === 'RuntimeRestart';
+            return isErrorLike<{ readonly _tag: string }>(error) && error._tag === 'RuntimeRestart';
           });
 
           if (hasRestart) {
-            return yield* Effect.void;
+            return;
           }
 
           const now = yield* Effect.sync(() => Date.now());
@@ -82,13 +77,13 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
 
           if (nextRestarts.length >= maxRestarts) {
             yield* Effect.logFatal(chalk`{bold.red System crashed too many times. Shutting down...}`, cause);
-            return yield* Effect.promise(() => process.exit(1));
+            yield* Effect.promise(() => process.exit(1));
+            return;
           }
 
           yield* Effect.logError(chalk`{bold.red System encountered an error}`, cause);
           yield* Effect.logInfo(chalk`{bold.yellow System restarting in ${restartDelayMs / 1000} seconds...}`);
           yield* Effect.sleep(`${restartDelayMs} millis`);
-          return yield* Effect.void;
         }),
       ),
       Effect.repeat(Schedule.forever),
@@ -97,16 +92,23 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
 
     const fiber = runFork(cycle, { name: 'MainCycle' });
 
-    const cleanUp = () => {
+    const cleanUp = (exitCode: number = 0) => {
       process.removeAllListeners('SIGINT');
       process.removeAllListeners('SIGTERM');
       runPromise(Fiber.interrupt(fiber))
-        .then(() => process.exit(0))
+        .then(() => process.exit(exitCode))
         .catch(() => process.exit(1));
     };
 
-    process.once('SIGINT', cleanUp);
-    process.once('SIGTERM', cleanUp);
+    Fiber.await(fiber).pipe(
+      Effect.andThen(() => Effect.sync(() => runMainCycle(program, options))),
+      (effect) => runFork(effect, { name: 'RestartMonitor' }),
+    );
+
+    process.removeAllListeners('SIGINT');
+    process.removeAllListeners('SIGTERM');
+    process.once('SIGINT', () => cleanUp());
+    process.once('SIGTERM', () => cleanUp());
   });
 
   Effect.runFork(mainEffect as Effect.Effect<never, never, never>);

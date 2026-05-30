@@ -1,11 +1,11 @@
 import 'dotenv/config';
 
 import { join } from 'node:path';
-import { Effect, Layer, Logger } from 'effect';
+import { Effect, Layer } from 'effect';
 
 import { ConfigContext, ConfigStoreTag, INITIAL_CONFIG, RegistrationSemaphore } from './core/schemas';
 import { HttpClientLayer } from './structures/HttpClient';
-import { LoggerClientLayer, makeLoggerClient } from './structures/LoggerClient';
+import { LoggerClientLayer } from './structures/LoggerClient';
 import { cycleUntilMidnight, runMainCycle } from './structures/RuntimeClient';
 import { StoreClientLayer } from './structures/StoreClient';
 import { runUserWorkflow } from './workflows/UserWorkflow';
@@ -28,13 +28,12 @@ const program = Effect.gen(function* () {
   }).pipe(Effect.provideService(RegistrationSemaphore, registrationSemaphore));
 });
 
-const logger = makeLoggerClient();
 const configPath = join(process.cwd(), 'sessions', 'settings.json');
 
 const BaseLayer = Layer.mergeAll(
   HttpClientLayer,
   StoreClientLayer(ConfigStoreTag, configPath, ConfigContext, INITIAL_CONFIG, 60_000),
-  LoggerClientLayer(Logger.defaultLogger, logger),
+  LoggerClientLayer(),
 );
 
 runMainCycle(program.pipe(Effect.provide(BaseLayer)));

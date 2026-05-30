@@ -26,7 +26,7 @@ export interface StoreClient<in out T> {
 const loadStore = (filePath: string): Effect.Effect<unknown, StoreClientError> =>
   Effect.tryPromise({
     try: () => readFile(filePath, 'utf-8'),
-    catch: (error) => new StoreClientError({ message: `Failed to load store: ${filePath}`, cause: error }),
+    catch: (error) => new StoreClientError({ message: `Failed to read store file: ${filePath}`, cause: error }),
   }).pipe(
     Effect.flatMap((content) =>
       Effect.try({
@@ -35,17 +35,11 @@ const loadStore = (filePath: string): Effect.Effect<unknown, StoreClientError> =
       }),
     ),
     Effect.catchAll((cause) => {
-      const isNotFound = isErrorLike<{ readonly code: string }>(cause) && cause.code === 'ENOENT';
-      if (isNotFound) {
+      if (cause instanceof StoreClientError && isErrorLike<{ readonly code: string }>(cause.cause) && cause.cause.code === 'ENOENT') {
         return Effect.succeed({});
       }
 
-      if (cause instanceof StoreClientError) {
-        return Effect.fail(cause);
-      }
-
-      const error = new StoreClientError({ message: `Failed to load store: ${filePath}`, cause });
-      return Effect.fail(error);
+      return Effect.fail(cause);
     }),
   );
 
@@ -77,40 +71,43 @@ export const makeStoreClient = <A extends object, I, R>(
   schema: Schema.Schema<A, I, R>,
   initialData: A,
   initialDelay = 1000,
+  isReadOnly = false,
 ): Effect.Effect<StoreClient<A>, never, Scope.Scope | R> =>
   Effect.gen(function* () {
     const dataRef = yield* Ref.make(initialData);
     const delayRef = yield* Ref.make(initialDelay);
     const dirtyRef = yield* Ref.make(false);
 
-    const decode = Schema.decodeUnknown(schema);
+    const decode = Schema.decodeUnknown(Schema.partial(schema));
 
     const rawData = yield* loadStore(filePath).pipe(Effect.catchAll(() => Effect.succeed({})));
     const validatedData = yield* decode(rawData).pipe(
+      Effect.map((partial) => defaultsDeep<A>({}, partial, initialData)),
       Effect.catchAll((error) =>
         Effect.gen(function* () {
           yield* Effect.logWarning(`Store validation failed for ${filePath}, merging with defaults`);
-          yield* Effect.logDebug(error.message);
+          yield* Effect.logDebug(error);
 
           const partialDecode = Schema.decodeUnknown(Schema.partial(schema));
           const partial = yield* partialDecode(rawData).pipe(Effect.catchAll(() => Effect.succeed({})));
 
-          const merged = defaultsDeep<A>({}, partial, initialData);
-          return Data.struct(merged);
+          return defaultsDeep<A>({}, partial, initialData);
         }),
       ),
+      Effect.map((merged) => Data.struct(merged)),
     );
 
     yield* Ref.set(dataRef, validatedData);
 
     const save = Effect.gen(function* () {
-      const isDirty = yield* Ref.getAndSet(dirtyRef, false);
+      const isDirtyValue = yield* Ref.getAndSet(dirtyRef, false);
 
-      if (!isDirty) {
+      if (!isDirtyValue) {
         return;
       }
 
       const data = yield* Ref.get(dataRef);
+
       const saveResult = yield* saveStore(filePath, schema, data).pipe(
         Effect.catchAll((error) =>
           Effect.gen(function* () {
@@ -123,15 +120,17 @@ export const makeStoreClient = <A extends object, I, R>(
       return saveResult;
     });
 
-    yield* Effect.forkScoped(
-      Effect.gen(function* () {
-        const delay = yield* Ref.get(delayRef);
-        yield* Effect.sleep(`${Math.max(1000, delay)} millis`);
-        yield* save;
-      }).pipe(Effect.repeat(Schedule.forever)),
-    );
+    if (!isReadOnly) {
+      yield* Effect.forkScoped(
+        Effect.gen(function* () {
+          const delay = yield* Ref.get(delayRef);
+          yield* Effect.sleep(`${Math.max(1000, delay)} millis`);
+          yield* save;
+        }).pipe(Effect.repeat(Schedule.forever)),
+      );
 
-    yield* Effect.addFinalizer(() => save.pipe(Effect.ignore));
+      yield* Effect.addFinalizer(() => save.pipe(Effect.ignore));
+    }
 
     return {
       get: Ref.get(dataRef),
@@ -155,5 +154,6 @@ export const StoreClientLayer = <I, S extends StoreClient<A>, A extends object, 
   schema: Schema.Schema<A, IS, R>,
   initialData: A,
   initialDelay = 1000,
+  isReadOnly = false,
 ): Layer.Layer<I, never, Scope.Scope | R> =>
-  Layer.scoped(tag, makeStoreClient(filePath, schema, initialData, initialDelay).pipe(Effect.map((client) => client as unknown as S)));
+  Layer.scoped(tag, makeStoreClient(filePath, schema, initialData, initialDelay, isReadOnly).pipe(Effect.map((client) => client as unknown as S)));

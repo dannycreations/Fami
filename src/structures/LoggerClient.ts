@@ -91,16 +91,21 @@ export const makeLoggerClient = (options: LoggerOptions = {}): pino.Logger => {
       nestedKey: 'payload',
       hooks: {
         logMethod(args, method) {
-          if (args.length >= 2) {
-            const [arg0, arg1, ...rest] = args;
-            if (typeof arg0 === 'string' && typeof arg1 === 'object') {
-              return method.apply(this, [arg1, arg0, ...rest]);
-            }
-
-            if (args.every((r) => typeof r === 'string')) {
-              return method.apply(this, [args.join(' ')]);
-            }
+          if (args.length < 2) {
+            return method.apply(this, args);
           }
+
+          const [arg0, arg1, ...rest] = args;
+
+          if (typeof arg0 === 'string' && typeof arg1 === 'object') {
+            return method.apply(this, [arg1, arg0, ...rest]);
+          }
+
+          if (args.every((r) => typeof r === 'string')) {
+            const joinedMessage = args.join(' ');
+            return method.apply(this, [joinedMessage]);
+          }
+
           return method.apply(this, args);
         },
       },
@@ -123,10 +128,12 @@ export const makeLoggerClient = (options: LoggerOptions = {}): pino.Logger => {
   return instance;
 };
 
-export const LoggerClientLayer = (self: Logger.Logger<unknown, void>, logger: pino.Logger): Layer.Layer<never> =>
-  Layer.mergeAll(
+export const LoggerClientLayer = (options: LoggerOptions = {}): Layer.Layer<never> => {
+  const logger = makeLoggerClient(options);
+
+  return Layer.mergeAll(
     Logger.replace(
-      self,
+      Logger.defaultLogger,
       Logger.make(({ logLevel, message, cause }) => {
         // Ignore internal Effect errors
         if (!Array.isArray(message)) {
@@ -139,7 +146,14 @@ export const LoggerClientLayer = (self: Logger.Logger<unknown, void>, logger: pi
           const causePretty = { cause: Cause.pretty(cause) };
 
           if (isErrorLike<{ readonly cause: unknown }>(failure) && failure.cause) {
-            message.push({ ...failure.cause, ...causePretty });
+            if (typeof failure.cause === 'object' && failure.cause !== null) {
+              message.push({ ...failure.cause, ...causePretty });
+            } else if (typeof failure.cause === 'string') {
+              message[0] = `${message[0]} (${failure.cause})`;
+              message.push(causePretty);
+            } else {
+              message.push(causePretty);
+            }
           } else {
             message.push(causePretty);
           }
@@ -151,3 +165,4 @@ export const LoggerClientLayer = (self: Logger.Logger<unknown, void>, logger: pi
     ),
     Logger.minimumLogLevel(PINO_LEVEL_MAP[logger.level] ?? LogLevel.Info),
   );
+};

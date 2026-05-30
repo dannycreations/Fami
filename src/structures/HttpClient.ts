@@ -52,12 +52,13 @@ export const isTimeoutError = (error: unknown): boolean =>
     (typeof error.message === 'string' && error.message.toLowerCase().includes('timeout')));
 
 export const isNetworkError = (error: unknown): boolean => {
-  const isError = isErrorLike<{ readonly status?: number; readonly code?: string }>(error);
-  if (!isError) {
+  if (!isErrorLike<{ readonly status?: number; readonly code?: string }>(error)) {
     return false;
   }
+
   const isNetwork = typeof error.code === 'string' && ERROR_CODES.has(error.code);
   const isRetryableStatus = typeof error.status === 'number' && ERROR_STATUS_CODES.has(error.status);
+
   return isNetwork || isRetryableStatus || isTimeoutError(error);
 };
 
