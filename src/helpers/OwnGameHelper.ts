@@ -24,6 +24,13 @@ export const collectOwnGames = (user: UserContext): Effect.Effect<void, never, S
     const configData = yield* configStore.get;
     const sessionData = yield* sessionStore.get;
 
+    const now = yield* Effect.clock.pipe(Effect.flatMap((clock) => clock.currentTimeMillis));
+    const isCooldown = now - sessionData.lastOwnGamesScan < configData.refreshGames;
+
+    if (isCooldown) {
+      return;
+    }
+
     const { whitelist } = getUserPreferences(configData, user, sessionData.bannedGameIds);
 
     const options = {
@@ -62,5 +69,6 @@ export const collectOwnGames = (user: UserContext): Effect.Effect<void, never, S
       ...data,
       ownedGameList: [...data.ownedGameList, ...newGames],
       ownedGameIds: HashSet.fromIterable([...data.ownedGameIds, ...newGames.map((g) => g.appId)]),
+      lastOwnGamesScan: now,
     }));
   });

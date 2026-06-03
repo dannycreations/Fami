@@ -92,8 +92,18 @@ export const collectFreeGames = (
       return;
     }
 
-    const steamClient = yield* SteamClientTag;
     const sessionData = yield* sessionStore.get;
+
+    const now = yield* Effect.clock.pipe(Effect.flatMap((clock) => clock.currentTimeMillis));
+    const isCooldown = now - sessionData.lastFreeGamesScan < 60_000;
+
+    if (isCooldown) {
+      return;
+    }
+
+    yield* sessionStore.update((data) => ({ ...data, lastFreeGamesScan: now }));
+
+    const steamClient = yield* SteamClientTag;
 
     const bannedAndOwned = HashSet.union(sessionData.bannedGameIds, sessionData.ownedGameIds);
     const { whitelist, blacklist } = getUserPreferences(configData, user, bannedAndOwned);

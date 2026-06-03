@@ -55,6 +55,8 @@ export class ConfigStoreTag extends Context.Tag('@schemas/ConfigStore')<ConfigSt
 export const SessionContext = Schema.Struct({
   lastLoop: Schema.Number,
   lastPage: Schema.Number,
+  lastOwnGamesScan: Schema.Number,
+  lastFreeGamesScan: Schema.Number,
   freeGameIds: Schema.HashSet(Schema.Number),
   freeGameList: Schema.Array(GameContext),
   forceRegister: Schema.Boolean,
@@ -68,6 +70,8 @@ export type SessionContext = Schema.Schema.Type<typeof SessionContext>;
 export const INITIAL_SESSION: SessionContext = {
   lastLoop: 0,
   lastPage: 1,
+  lastOwnGamesScan: 0,
+  lastFreeGamesScan: 0,
   freeGameIds: HashSet.empty(),
   freeGameList: [],
   forceRegister: false,

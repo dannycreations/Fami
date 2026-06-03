@@ -6,7 +6,6 @@ import SteamUser from 'steam-user';
 
 import { ConfigStoreTag, SessionStore, UserContext } from '../core/schemas';
 import { getRateLimitSleep } from '../core/utils';
-import { collectOwnGames } from '../helpers/OwnGameHelper';
 import { SteamClient, SteamEvent } from '../services/SteamService';
 import { waitForConnection } from '../structures/HttpClient';
 
@@ -52,8 +51,6 @@ export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, stat
     if (hasFamily) {
       yield* Effect.promise(() => steamClient.user.getPersonas([...user.family!]));
     }
-
-    yield* collectOwnGames(user);
 
     const sessionData = yield* sessionStore.get;
     yield* Effect.logInfo(`${user.username} owns ${sessionData.ownedGameList.length} games`);
@@ -169,6 +166,7 @@ export const handleVacBans = (user: UserContext, event: Extract<SteamEvent, { _t
       yield* sessionStore.update((data) => ({
         ...data,
         bannedGameIds: HashSet.fromIterable(event.appids),
+        lastOwnGamesScan: 0,
       }));
     }
   });

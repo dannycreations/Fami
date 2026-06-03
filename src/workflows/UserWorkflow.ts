@@ -21,24 +21,13 @@ const whenLoggedOn =
 const cycleCollector = (user: UserContext, state: UserWorkflowState) => {
   const checkLoggedOn = whenLoggedOn(state);
 
-  const ownGamesLoop = checkLoggedOn(
+  return checkLoggedOn(
     Effect.gen(function* () {
-      const configStore = yield* ConfigStoreTag;
-      const config = yield* configStore.get;
-
       yield* collectOwnGames(user);
-      yield* Effect.sleep(`${config.refreshGames} millis`);
-    }),
-  ).pipe(Effect.repeat(Schedule.forever));
-
-  const freeGamesLoop = checkLoggedOn(
-    Effect.gen(function* () {
       yield* collectFreeGames(user);
       yield* Effect.sleep('1 minute');
     }),
   ).pipe(Effect.repeat(Schedule.forever));
-
-  return Effect.all([ownGamesLoop, freeGamesLoop], { concurrency: 'unbounded' });
 };
 
 const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
@@ -46,21 +35,21 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
     const checkLoggedOn = whenLoggedOn(state);
     const nextIdleTimeRef = yield* Ref.make(0);
 
-    const idleLoop = checkLoggedOn(
+    return yield* checkLoggedOn(
       Effect.gen(function* () {
         const { isPlaying, family, isEnabled } = yield* Ref.get(state.state);
 
         const hasFamilyOnline = Object.values(family).some((status) => !(USER_OFFLINE_STATE as readonly number[]).includes(status));
-        const shouldPause = hasFamilyOnline && (isEnabled || isPlaying);
 
-        if (shouldPause) {
-          yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false }));
-          yield* state.setGamesPlayed([]);
+        if (hasFamilyOnline) {
+          if (isEnabled || isPlaying) {
+            yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false }));
+            yield* state.setGamesPlayed([]);
+          }
+          return;
         }
 
-        const shouldCheckOnlineState = !hasFamilyOnline && !isPlaying;
-
-        if (shouldCheckOnlineState) {
+        if (!isEnabled && !isPlaying) {
           const steamId = yield* steamClient.steamID;
           const communityUser = steamId ? yield* steamClient.getCommunityUser(steamId) : null;
           const hasValidOnlineState = communityUser && typeof communityUser.onlineState === 'string';
@@ -96,8 +85,6 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
         }
       }),
     ).pipe(Effect.repeat(Schedule.spaced('30 seconds')));
-
-    return yield* idleLoop;
   });
 
 const tryLogin = (user: UserContext, steamClient: SteamClient) =>
