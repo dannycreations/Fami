@@ -2,4 +2,4 @@ allowBuilds:
   esbuild: true
   protobufjs: true
 minimumReleaseAgeExclude:
-  - user-agents@2.1.75
+  - user-agents@2.1.79

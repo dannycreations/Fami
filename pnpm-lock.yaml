@@ -36,8 +36,8 @@ importers:
         specifier: ^3.50.0
         version: 3.50.0
       user-agents:
-        specifier: ^2.1.75
-        version: 2.1.75
+        specifier: ^2.1.79
+        version: 2.1.79
     devDependencies:
       '@effect/language-service':
         specifier: ^0.86.2
@@ -76,8 +76,8 @@ importers:
         specifier: ^6.1.3
         version: 6.1.3
       tsx:
-        specifier: ^4.22.3
-        version: 4.22.3
+        specifier: ^4.22.4
+        version: 4.22.4
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1170,8 +1170,8 @@ packages:
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
-  tsx@4.22.3:
-    resolution: {integrity: sha512-mdoNxBC/cSQObGGVQ5Bpn5i+yv7j68gk3Nfm3wFjcJg3Z0Mix9jzAFfP12prmm5eVGmDKtp0yyArrs0Q+8gZHg==}
+  tsx@4.22.4:
+    resolution: {integrity: sha512-X8EX+XV4QR5xCsrgxaED954zTDfY8KqlDtskKEL0cHhyS/P8b4IFOvGDQpsC9Q1XnLq915wEfwwY/zzskCtmhg==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -1197,8 +1197,8 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
-  user-agents@2.1.75:
-    resolution: {integrity: sha512-PUfFLfuKe5+I9OeUYvewb0iwhe2W0KZluq/tJa2ZRucc31tI0cmTyOQ3NI9yuR0P5pd+E4kcegHOBygdUXAyQQ==}
+  user-agents@2.1.79:
+    resolution: {integrity: sha512-2Rq3f0OlepGrINWBf7pVEAfiv58ZMyBpOlJ59F5sdYTsqpQNFU2SQuoMBE/crm8jMQYpTucxPY0K3bCIjkgXPA==}
     engines: {node: '>=18'}
 
   util-deprecate@1.0.2:
@@ -2354,7 +2354,7 @@ snapshots:
 
   tslib@2.8.1: {}
 
-  tsx@4.22.3:
+  tsx@4.22.4:
     dependencies:
       esbuild: 0.28.0
     optionalDependencies:
@@ -2376,7 +2376,7 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  user-agents@2.1.75: {}
+  user-agents@2.1.79: {}
 
   util-deprecate@1.0.2: {}
 
