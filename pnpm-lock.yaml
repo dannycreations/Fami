@@ -15,8 +15,8 @@ importers:
         specifier: ^17.4.2
         version: 17.4.2
       effect:
-        specifier: ^3.21.2
-        version: 3.21.2
+        specifier: ^3.21.3
+        version: 3.21.3
       got:
         specifier: 11.8.6
         version: 11.8.6
@@ -36,8 +36,8 @@ importers:
         specifier: ^3.50.0
         version: 3.50.0
       user-agents:
-        specifier: ^2.1.79
-        version: 2.1.79
+        specifier: ^2.1.82
+        version: 2.1.82
     devDependencies:
       '@effect/language-service':
         specifier: ^0.86.2
@@ -67,8 +67,8 @@ importers:
         specifier: ^9.1.7
         version: 9.1.7
       npm-check-updates:
-        specifier: ^22.2.1
-        version: 22.2.1
+        specifier: ^22.2.3
+        version: 22.2.3
       prettier:
         specifier: ^3.8.3
         version: 3.8.3
@@ -615,8 +615,8 @@ packages:
   ecc-jsbn@0.1.2:
     resolution: {integrity: sha512-eh9O+hwRHNbG4BLTjEl3nw044CkGm5X6LoaCf7LPp7UU8Qrt47JYNi6nPX8xjW97TKGKm1ouctg0QSpZe9qrnw==}
 
-  effect@3.21.2:
-    resolution: {integrity: sha512-rXd2FGDM8KdjSIrc+mqEELo7ScW7xTVxEf1iInmPSpIde9/nyGuFM710cjTo7/EreGXiUX2MOonPpprbz2XHCg==}
+  effect@3.21.3:
+    resolution: {integrity: sha512-RqwU7WnJ6CqYhyjpOVJA5vh1Sgkn6eVECO6mnD0EjlbWcC2M3LJaPglXXr13Rdo/Y+B+wTEPzGRYFNL2xKxNeQ==}
 
   end-of-stream@1.4.5:
     resolution: {integrity: sha512-ooEGc6HP26xXq/N+GCGOT0JKCLDGrq2bQUZrQ7gyrJiZANJ/8YDTxTpQBXGMn+WbIQXNVpyWymm7KYVICQnyOg==}
@@ -942,8 +942,8 @@ packages:
     resolution: {integrity: sha512-DlL+XwOy3NxAQ8xuC0okPgK46iuVNAK01YN7RueYBqqFeGsBjV9XmCAzAdgt+667bCl5kPh9EqKKDwnaPG1I7A==}
     engines: {node: '>=10'}
 
-  npm-check-updates@22.2.1:
-    resolution: {integrity: sha512-mGdIJfhtg+q0BzhbOpbOL73zhMZlgBQMG4wnBwPMMD5k96028UCuV0753YeSYk9odoh7HWK6/cY69bWxT7o+yg==}
+  npm-check-updates@22.2.3:
+    resolution: {integrity: sha512-n8HZ0ywZugYRgEqIm67hbZC5L/9S/gLX+MkGchJB43pP2xib1+u76OpVEJRZ4QP2BksPRi5M1CCStJVfc16+/A==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0, npm: '>=10.0.0'}
     hasBin: true
 
@@ -1197,8 +1197,8 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
-  user-agents@2.1.79:
-    resolution: {integrity: sha512-2Rq3f0OlepGrINWBf7pVEAfiv58ZMyBpOlJ59F5sdYTsqpQNFU2SQuoMBE/crm8jMQYpTucxPY0K3bCIjkgXPA==}
+  user-agents@2.1.82:
+    resolution: {integrity: sha512-qr/y+7VNOT9BYY1/7Jisw9MVQtLQ9bgrYcH3o7Wn3f0EwO4Ke6z4i+JcttEl+WyQ7SIpBUOUk5PjdhrerS4F5A==}
     engines: {node: '>=18'}
 
   util-deprecate@1.0.2:
@@ -1738,7 +1738,7 @@ snapshots:
       jsbn: 0.1.1
       safer-buffer: 2.1.2
 
-  effect@3.21.2:
+  effect@3.21.3:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 3.23.2
@@ -2046,7 +2046,7 @@ snapshots:
 
   normalize-url@6.1.0: {}
 
-  npm-check-updates@22.2.1: {}
+  npm-check-updates@22.2.3: {}
 
   nth-check@1.0.2:
     dependencies:
@@ -2376,7 +2376,7 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  user-agents@2.1.79: {}
+  user-agents@2.1.82: {}
 
   util-deprecate@1.0.2: {}
 

@@ -23,9 +23,12 @@ const program = Effect.gen(function* () {
 
   const registrationSemaphore = yield* Effect.makeSemaphore(1);
 
-  yield* Effect.all([...config.users.map((user) => runUserWorkflow(user)), cycleUntilMidnight], {
-    concurrency: 'unbounded',
-  }).pipe(Effect.provideService(RegistrationSemaphore, registrationSemaphore));
+  yield* Effect.all(
+    config.users.map((user) => runUserWorkflow(user)),
+    {
+      concurrency: 'unbounded',
+    },
+  ).pipe(cycleUntilMidnight, Effect.provideService(RegistrationSemaphore, registrationSemaphore));
 });
 
 const configPath = join(process.cwd(), 'sessions', 'settings.json');
