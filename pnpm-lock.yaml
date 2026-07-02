@@ -15,8 +15,8 @@ importers:
         specifier: ^17.4.2
         version: 17.4.2
       effect:
-        specifier: ^3.21.3
-        version: 3.21.3
+        specifier: ^3.21.4
+        version: 3.21.4
       got:
         specifier: 11.8.6
         version: 11.8.6
@@ -33,18 +33,18 @@ importers:
         specifier: ^5.3.0
         version: 5.3.0
       steamcommunity:
-        specifier: ^3.50.0
-        version: 3.50.0
+        specifier: ^3.50.1
+        version: 3.50.1
       user-agents:
-        specifier: ^2.1.82
-        version: 2.1.82
+        specifier: ^2.1.109
+        version: 2.1.109
     devDependencies:
       '@effect/language-service':
         specifier: ^0.86.2
         version: 0.86.2
       '@ianvs/prettier-plugin-sort-imports':
         specifier: ^4.7.1
-        version: 4.7.1(prettier@3.8.3)
+        version: 4.7.1(prettier@3.9.4)
       '@sapphire/ts-config':
         specifier: ^5.0.3
         version: 5.0.3
@@ -67,11 +67,11 @@ importers:
         specifier: ^9.1.7
         version: 9.1.7
       npm-check-updates:
-        specifier: ^22.2.3
-        version: 22.2.3
+        specifier: ^22.2.9
+        version: 22.2.9
       prettier:
-        specifier: ^3.8.3
-        version: 3.8.3
+        specifier: ^3.9.4
+        version: 3.9.4
       rimraf:
         specifier: ^6.1.3
         version: 6.1.3
@@ -615,8 +615,8 @@ packages:
   ecc-jsbn@0.1.2:
     resolution: {integrity: sha512-eh9O+hwRHNbG4BLTjEl3nw044CkGm5X6LoaCf7LPp7UU8Qrt47JYNi6nPX8xjW97TKGKm1ouctg0QSpZe9qrnw==}
 
-  effect@3.21.3:
-    resolution: {integrity: sha512-RqwU7WnJ6CqYhyjpOVJA5vh1Sgkn6eVECO6mnD0EjlbWcC2M3LJaPglXXr13Rdo/Y+B+wTEPzGRYFNL2xKxNeQ==}
+  effect@3.21.4:
+    resolution: {integrity: sha512-B89v/xSgPbl1J2Ai2u18jxq3odpFauU1rC6/eSs4FeNHi72kwKdJp12VGigvRV2lK+kRnx+OOz41XV8guZd4gQ==}
 
   end-of-stream@1.4.5:
     resolution: {integrity: sha512-ooEGc6HP26xXq/N+GCGOT0JKCLDGrq2bQUZrQ7gyrJiZANJ/8YDTxTpQBXGMn+WbIQXNVpyWymm7KYVICQnyOg==}
@@ -942,8 +942,8 @@ packages:
     resolution: {integrity: sha512-DlL+XwOy3NxAQ8xuC0okPgK46iuVNAK01YN7RueYBqqFeGsBjV9XmCAzAdgt+667bCl5kPh9EqKKDwnaPG1I7A==}
     engines: {node: '>=10'}
 
-  npm-check-updates@22.2.3:
-    resolution: {integrity: sha512-n8HZ0ywZugYRgEqIm67hbZC5L/9S/gLX+MkGchJB43pP2xib1+u76OpVEJRZ4QP2BksPRi5M1CCStJVfc16+/A==}
+  npm-check-updates@22.2.9:
+    resolution: {integrity: sha512-DVeZ0KirHfliSsHuR2o7cHE+tW439sVHfJjF6cGWeDiY0Wyl3BI/jS4zV0eixtcMOquFbcF1Su/FsxOvk5MoYA==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0, npm: '>=10.0.0'}
     hasBin: true
 
@@ -995,8 +995,8 @@ packages:
     resolution: {integrity: sha512-r34yH/GlQpKZbU1BvFFqOjhISRo1MNx1tWYsYvmj6KIRHSPMT2+yHOEb1SG6NMvRoHRF0a07kCOox/9yakl1vg==}
     hasBin: true
 
-  prettier@3.8.3:
-    resolution: {integrity: sha512-7igPTM53cGHMW8xWuVTydi2KO233VFiTNyF5hLJqpilHfmn8C8gPf+PS7dUT64YcXFbiMGZxS9pCSxL/Dxm/Jw==}
+  prettier@3.9.4:
+    resolution: {integrity: sha512-yWG/o/4oJfo036EKAfK6ACAoDOfHeRHx4tuxkfBZiauURiaSmYwlpOr5LQqKtIkRD2z1PLteme2WoxEnj4tHTg==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -1134,8 +1134,8 @@ packages:
       lzma-native:
         optional: true
 
-  steamcommunity@3.50.0:
-    resolution: {integrity: sha512-xbQONnDZDA2ph9MN3vABetgFOnXsxkbJS+scYL5OjBwKyUtQe9hA0+JtReK4PGtxOqbs+kS8G79wghBp6W3Bzw==}
+  steamcommunity@3.50.1:
+    resolution: {integrity: sha512-X9J6r+VU88r1Tspex5ZII8hZh6a/Gdxihal6eWE3V/302HTS44ykP3KhBFHrvsCGG+kKF6u1PPM901ZZRwXTsA==}
     engines: {node: '>=4.0.0'}
 
   steamid@1.1.3:
@@ -1197,8 +1197,8 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
-  user-agents@2.1.82:
-    resolution: {integrity: sha512-qr/y+7VNOT9BYY1/7Jisw9MVQtLQ9bgrYcH3o7Wn3f0EwO4Ke6z4i+JcttEl+WyQ7SIpBUOUk5PjdhrerS4F5A==}
+  user-agents@2.1.109:
+    resolution: {integrity: sha512-7FgJbP78kMTZTIcFxZKfCQt8aSUEHOPULLuavvETOJUEg9QhrzKgoEgvcW4BevZvdVWTQTneI+EAVBvJ3VhXIA==}
     engines: {node: '>=18'}
 
   util-deprecate@1.0.2:
@@ -1408,13 +1408,13 @@ snapshots:
   '@esbuild/win32-x64@0.28.0':
     optional: true
 
-  '@ianvs/prettier-plugin-sort-imports@4.7.1(prettier@3.8.3)':
+  '@ianvs/prettier-plugin-sort-imports@4.7.1(prettier@3.9.4)':
     dependencies:
       '@babel/generator': 7.28.0
       '@babel/parser': 7.28.0
       '@babel/traverse': 7.28.0
       '@babel/types': 7.28.2
-      prettier: 3.8.3
+      prettier: 3.9.4
       semver: 7.7.2
     transitivePeerDependencies:
       - supports-color
@@ -1738,7 +1738,7 @@ snapshots:
       jsbn: 0.1.1
       safer-buffer: 2.1.2
 
-  effect@3.21.3:
+  effect@3.21.4:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 3.23.2
@@ -2046,7 +2046,7 @@ snapshots:
 
   normalize-url@6.1.0: {}
 
-  npm-check-updates@22.2.3: {}
+  npm-check-updates@22.2.9: {}
 
   nth-check@1.0.2:
     dependencies:
@@ -2113,7 +2113,7 @@ snapshots:
       sonic-boom: 4.2.0
       thread-stream: 4.0.0
 
-  prettier@3.8.3: {}
+  prettier@3.9.4: {}
 
   process-warning@5.0.0: {}
 
@@ -2311,7 +2311,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  steamcommunity@3.50.0:
+  steamcommunity@3.50.1:
     dependencies:
       '@doctormckay/user-agents': 1.0.0
       async: 2.6.4
@@ -2376,7 +2376,7 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  user-agents@2.1.82: {}
+  user-agents@2.1.109: {}
 
   util-deprecate@1.0.2: {}
 

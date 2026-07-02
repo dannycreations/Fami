@@ -1,4 +1,2 @@
-allowBuilds:
-  esbuild: true
-  protobufjs: true
+dangerouslyAllowAllBuilds: true
 minimumReleaseAge: 0

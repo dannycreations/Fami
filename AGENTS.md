@@ -1,4 +1,4 @@
-# TypeScript Development Guide
+# Fami Development Guide
 
 ## Guidelines
 

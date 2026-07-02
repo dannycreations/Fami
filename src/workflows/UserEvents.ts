@@ -46,15 +46,54 @@ export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, stat
     const config = yield* configStore.get;
     yield* sessionStore.setDelay(config.refreshGames);
 
+    const logOwnedGamesAndSucceed = Effect.gen(function* () {
+      const sessionData = yield* sessionStore.get;
+      yield* Effect.logInfo(`${user.username} owns ${sessionData.ownedGameList.length} games`);
+      yield* Deferred.succeed(state.loggedOn, undefined);
+    });
+
     const hasFamily = user.family && user.family.length > 0;
 
     if (hasFamily) {
       yield* Effect.promise(() => steamClient.user.getPersonas([...user.family!]));
-    }
 
-    const sessionData = yield* sessionStore.get;
-    yield* Effect.logInfo(`${user.username} owns ${sessionData.ownedGameList.length} games`);
-    yield* Deferred.succeed(state.loggedOn, undefined);
+      yield* Effect.fork(
+        Effect.gen(function* () {
+          while (true) {
+            const s = yield* Ref.get(state.state);
+            const hasUnknown = Object.values(s.family).some((status) => status === -1);
+            if (!hasUnknown) {
+              break;
+            }
+            yield* Effect.sleep('100 millis');
+          }
+
+          yield* Effect.sleep('2 seconds');
+
+          let firstCheck = true;
+          while (true) {
+            const s = yield* Ref.get(state.state);
+            const onlineFamilyMembers = Object.entries(s.family)
+              .filter(([_, status]) => !(USER_OFFLINE_STATE as readonly number[]).includes(status))
+              .map(([id]) => id);
+
+            if (onlineFamilyMembers.length === 0) {
+              break;
+            }
+
+            if (firstCheck) {
+              firstCheck = false;
+            }
+
+            yield* Effect.sleep('5 seconds');
+          }
+
+          yield* logOwnedGamesAndSucceed;
+        }),
+      );
+    } else {
+      yield* logOwnedGamesAndSucceed;
+    }
   });
 
 export const handleSteamGuard = (user: UserContext, event: Extract<SteamEvent, { _tag: 'SteamGuard' }>) =>
