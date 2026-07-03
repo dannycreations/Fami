@@ -42,8 +42,8 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
         const hasFamilyOnline = Object.values(family).some((status) => !(USER_OFFLINE_STATE as readonly number[]).includes(status));
 
         if (hasFamilyOnline) {
-          if (isEnabled || isPlaying) {
-            yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false }));
+          yield* Ref.set(nextIdleTimeRef, 0);
+          if (isPlaying) {
             yield* state.setGamesPlayed([]);
           }
           return;

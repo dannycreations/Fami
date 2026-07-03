@@ -256,11 +256,11 @@ export const handleUserUpdate = (
       return;
     }
 
-    yield* Ref.update(state.state, (s) => ({ ...s, isEnabled: false }));
-    yield* state.setGamesPlayed([]);
-
-    const playerName = event.user.player_name || 'FamilyMember';
-    yield* Effect.logInfo(chalk`{yellow ${user.username} paused: ${playerName} is online}`);
+    if (isPlaying) {
+      yield* state.setGamesPlayed([]);
+      const playerName = event.user.player_name || 'FamilyMember';
+      yield* Effect.logInfo(chalk`{yellow ${user.username} paused: ${playerName} is online}`);
+    }
   });
 
 export const handleSteamEvent = (event: SteamEvent, user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
