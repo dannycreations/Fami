@@ -45,11 +45,11 @@ export interface HttpClient {
 
 export class HttpClientTag extends Context.Tag('@structures/HttpClient')<HttpClientTag, HttpClient>() {}
 
+const TIMEOUT_REGEX = /timeout|timed out/i;
+
 export const isTimeoutError = (error: unknown): boolean =>
   isErrorLike<{ readonly _tag: string; readonly code?: string; readonly message?: string }>(error) &&
-  (error._tag === 'TimeoutException' ||
-    error.code === 'ETIMEDOUT' ||
-    (typeof error.message === 'string' && error.message.toLowerCase().includes('timeout')));
+  (error._tag === 'TimeoutException' || error.code === 'ETIMEDOUT' || (typeof error.message === 'string' && TIMEOUT_REGEX.test(error.message)));
 
 export const isNetworkError = (error: unknown): boolean => {
   if (!isErrorLike<{ readonly status?: number; readonly code?: string }>(error)) {
@@ -118,6 +118,15 @@ const makeHttpClient = Effect.gen(function* () {
           promise.cancel();
         });
       }).pipe(
+        Effect.timeout(`${total * 2} millis`),
+        Effect.catchTag('TimeoutException', () =>
+          Effect.fail(
+            new HttpClientError({
+              message: 'Request timed out',
+              code: 'ETIMEDOUT',
+            }),
+          ),
+        ),
         Effect.retry({
           while: isNetworkError,
           schedule: retryCount < 0 ? Schedule.forever : Schedule.recurs(retryCount),
