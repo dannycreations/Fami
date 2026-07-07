@@ -36,8 +36,8 @@ importers:
         specifier: ^3.50.1
         version: 3.50.1
       user-agents:
-        specifier: ^2.1.112
-        version: 2.1.112
+        specifier: ^2.1.114
+        version: 2.1.114
     devDependencies:
       '@effect/language-service':
         specifier: ^0.86.4
@@ -1197,8 +1197,8 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
-  user-agents@2.1.112:
-    resolution: {integrity: sha512-EpIPKE4LkuuXVVAix6gS6Cc4R/MDrJTql88lckkmY+Y057iVMuumsNN25y0fuYxJ6/P/bbVQZWzu4x7/iTE5aQ==}
+  user-agents@2.1.114:
+    resolution: {integrity: sha512-bvveWMn3O8krOLeTBSdfykA1WRQBM3lBI01iiS4kqdgy3+lZ8yTT5B+HwC5JGkgxdzguWMmKTX6zbwvvczRURw==}
     engines: {node: '>=18'}
 
   util-deprecate@1.0.2:
@@ -2376,7 +2376,7 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  user-agents@2.1.112: {}
+  user-agents@2.1.114: {}
 
   util-deprecate@1.0.2: {}
 

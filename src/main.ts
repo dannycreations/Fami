@@ -28,12 +28,9 @@ const program = Effect.gen(function* () {
   }).pipe(Effect.provideService(RegistrationSemaphore, registrationSemaphore));
 });
 
+const logger = LoggerClientLayer();
 const configPath = join(process.cwd(), 'sessions', 'settings.json');
 
-const BaseLayer = Layer.mergeAll(
-  HttpClientLayer,
-  StoreClientLayer(ConfigStoreTag, configPath, ConfigContext, INITIAL_CONFIG, 60_000),
-  LoggerClientLayer(),
-);
+const BaseLayer = Layer.mergeAll(HttpClientLayer, StoreClientLayer(ConfigStoreTag, configPath, ConfigContext, INITIAL_CONFIG, 60_000), logger);
 
-runMainCycle(program.pipe(Effect.provide(BaseLayer)));
+runMainCycle(program.pipe(Effect.provide(BaseLayer)), { logger });

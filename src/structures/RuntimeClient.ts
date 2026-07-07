@@ -1,7 +1,8 @@
 import { ChildProcess, fork } from 'node:child_process';
 import process from 'node:process';
 import { chalk } from '@vegapunk/utilities';
-import { Cause, Data, Effect, Exit, Fiber, Ref, Runtime } from 'effect';
+import { isObjectLike } from '@vegapunk/utilities/common';
+import { Cause, Data, Effect, Exit, Fiber, Layer, Ref, Runtime } from 'effect';
 
 export interface RuntimeBridge {
   readonly runFork: <A, E, R>(effect: Effect.Effect<A, E, R>) => Fiber.RuntimeFiber<A, E>;
@@ -21,13 +22,11 @@ export const makeRuntimeBridge = Effect.gen(function* () {
 class RuntimeRestartSignal extends Data.TaggedError('RuntimeRestartSignal') {}
 class RuntimeShutdownSignal extends Data.TaggedError('RuntimeShutdownSignal') {}
 
-const RESTART_EXIT_CODE = 240699;
-const SHUTDOWN_EXIT_CODE = 240700;
-
 export interface RuntimeCycleOptions {
   readonly maxRestarts?: number;
   readonly intervalMs?: number;
   readonly restartDelayMs?: number;
+  readonly logger?: Layer.Layer<never, never>;
 }
 
 export const restartMainCycle = (): Effect.Effect<never, RuntimeRestartSignal> => {
@@ -92,17 +91,27 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
         let signalRestart = false;
         let signalShutdown = false;
         for (const failure of failures) {
-          if (failure instanceof RuntimeRestartSignal) {
+          if (!(isObjectLike(failure) && '_tag' in failure)) {
+            continue;
+          }
+
+          if (failure._tag === 'RuntimeRestartSignal') {
             signalRestart = true;
-          } else if (failure instanceof RuntimeShutdownSignal) {
+          } else if (failure._tag === 'RuntimeShutdownSignal') {
             signalShutdown = true;
           }
         }
 
         if (signalRestart) {
-          process.exit(RESTART_EXIT_CODE);
+          if (process.send) {
+            process.send({ type: 'restart' });
+          }
+          process.exit(0);
         } else if (signalShutdown) {
-          process.exit(SHUTDOWN_EXIT_CODE);
+          if (process.send) {
+            process.send({ type: 'shutdown' });
+          }
+          process.exit(0);
         } else {
           yield* Effect.logError(chalk`{bold.red System encountered an error}`, cause);
           process.exit(1);
@@ -110,12 +119,13 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
       }
     });
 
-    Effect.runPromise(childMain as Effect.Effect<never, never, never>);
+    const childMainWithLogger = options.logger ? childMain.pipe(Effect.provide(options.logger)) : childMain;
+    Effect.runPromise(childMainWithLogger as Effect.Effect<never, never, never>);
     return;
   }
 
   const runChildProcess = (currentChildRef: { current: ChildProcess | null }) => {
-    return Effect.async<{ code: number | null; signal: NodeJS.Signals | null }, never, never>((resume) => {
+    return Effect.async<{ code: number | null; signal: NodeJS.Signals | null; action: 'restart' | 'shutdown' | null }, never, never>((resume) => {
       if (currentChildRef.current) {
         try {
           currentChildRef.current.kill('SIGTERM');
@@ -129,7 +139,19 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
       });
       currentChildRef.current = child;
 
+      let action: 'restart' | 'shutdown' | null = null;
       let resolved = false;
+
+      const handleMessage = (message: unknown) => {
+        if (isObjectLike(message) && 'type' in message) {
+          if (message.type === 'restart') {
+            action = 'restart';
+          } else if (message.type === 'shutdown') {
+            action = 'shutdown';
+          }
+        }
+      };
+
       const handleExit = (code: number | null, signal: NodeJS.Signals | null) => {
         if (resolved) {
           return;
@@ -137,15 +159,17 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
 
         resolved = true;
         currentChildRef.current = null;
-        resume(Effect.succeed({ code, signal }));
+        resume(Effect.succeed({ code, signal, action }));
       };
 
       const handleError = () => handleExit(1, null);
 
+      child.on('message', handleMessage);
       child.once('exit', handleExit);
       child.once('error', handleError);
 
       return Effect.sync(() => {
+        child.off('message', handleMessage);
         child.off('exit', handleExit);
         child.off('error', handleError);
 
@@ -174,8 +198,9 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
         try {
           currentChildRef.current.kill(signal);
         } catch {}
+      } else {
+        process.exit(0);
       }
-      process.exit(0);
     };
 
     const onSigInt = () => cleanUp('SIGINT');
@@ -186,14 +211,9 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
 
     try {
       while (true) {
-        const { code, signal } = yield* runChildProcess(currentChildRef);
+        const { code, signal, action } = yield* runChildProcess(currentChildRef);
 
         if (isShuttingDown) {
-          process.exit(0);
-        }
-
-        if (code === SHUTDOWN_EXIT_CODE) {
-          yield* Effect.logInfo(chalk`{bold.green Child process requested SHUTDOWN. Parent exiting.}`);
           process.exit(0);
         }
 
@@ -202,7 +222,12 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
           process.exit(0);
         }
 
-        if (code === RESTART_EXIT_CODE || code === 0) {
+        if (action === 'shutdown') {
+          yield* Effect.logInfo(chalk`{bold.green Child process requested SHUTDOWN. Parent exiting.}`);
+          process.exit(0);
+        }
+
+        if (action === 'restart' || code === 0) {
           yield* Ref.set(restartTimesRef, []);
           continue;
         }
@@ -226,5 +251,6 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
     }
   });
 
-  Effect.runPromise(parentMain as Effect.Effect<never, never, never>);
+  const parentMainWithLogger = options.logger ? parentMain.pipe(Effect.provide(options.logger)) : parentMain;
+  Effect.runPromise(parentMainWithLogger as Effect.Effect<never, never, never>);
 };
