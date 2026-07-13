@@ -142,7 +142,7 @@ export const collectFreeGames = (
       return yield* semaphore.withPermits(1)(registerFreeGames(user));
     }
 
-    const productInfo = yield* steamClient.getProductInfo(appIdsToCheck, []).pipe(Effect.catchAll(() => Effect.succeed({ apps: null })));
+    const productInfo = yield* steamClient.getProductInfo(appIdsToCheck, []).pipe(Effect.orElseSucceed(() => ({ apps: null })));
 
     const apps = productInfo.apps;
     const isInvalidApps = !isObjectLike(apps);

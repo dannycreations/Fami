@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/Effect-TS/language-service/main/schema.json",
+  "$schema": "https://raw.githubusercontent.com/Effect-TS/tsgo/refs/heads/main/schema.json",
   "extends": ["@sapphire/ts-config", "@sapphire/ts-config/extra-strict", "@sapphire/ts-config/decorators"],
   "compilerOptions": {
     "plugins": [

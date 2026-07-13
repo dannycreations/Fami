@@ -52,7 +52,7 @@ export const cycleUntilMidnight = Effect.gen(function* () {
 export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: RuntimeCycleOptions = {}): void => {
   const { maxRestarts = 3, intervalMs = 60_000, restartDelayMs = 5_000 } = options;
 
-  if (process.argv.includes('--child')) {
+  if (typeof process.send === 'function') {
     const childMain = Effect.gen(function* () {
       const { runFork, runPromise } = yield* makeRuntimeBridge;
 
@@ -84,39 +84,37 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
 
       if (Exit.isSuccess(exitValue)) {
         process.exit(0);
-      } else {
-        const cause = exitValue.cause;
-        const failures = Cause.failures(cause);
+      }
 
-        let signalRestart = false;
-        let signalShutdown = false;
-        for (const failure of failures) {
-          if (!(isObjectLike(failure) && '_tag' in failure)) {
-            continue;
-          }
+      const cause = exitValue.cause;
+      const failures = Cause.failures(cause);
 
-          if (failure._tag === 'RuntimeRestartSignal') {
-            signalRestart = true;
-          } else if (failure._tag === 'RuntimeShutdownSignal') {
-            signalShutdown = true;
-          }
+      let signalRestart = false;
+      let signalShutdown = false;
+      for (const failure of failures) {
+        if (!(isObjectLike(failure) && '_tag' in failure)) {
+          continue;
         }
 
-        if (signalRestart) {
-          if (process.send) {
-            process.send({ type: 'restart' });
-          }
-          process.exit(0);
-        } else if (signalShutdown) {
-          if (process.send) {
-            process.send({ type: 'shutdown' });
-          }
-          process.exit(0);
-        } else {
-          yield* Effect.logError(chalk`{bold.red System encountered an error}`, cause);
-          process.exit(1);
+        if (failure._tag === 'RuntimeRestartSignal') {
+          signalRestart = true;
+          break;
+        } else if (failure._tag === 'RuntimeShutdownSignal') {
+          signalShutdown = true;
+          break;
         }
       }
+
+      if (signalRestart) {
+        process.send?.({ type: 'restart' });
+        process.exit(0);
+      } else if (signalShutdown) {
+        process.send?.({ type: 'shutdown' });
+        process.exit(0);
+      }
+
+      yield* Effect.logError(chalk`{bold.red System encountered an error}`, cause);
+      process.exit(1);
     });
 
     const childMainWithLogger = options.logger ? childMain.pipe(Effect.provide(options.logger)) : childMain;
@@ -126,14 +124,18 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
 
   const runChildProcess = (currentChildRef: { current: ChildProcess | null }) => {
     return Effect.async<{ code: number | null; signal: NodeJS.Signals | null; action: 'restart' | 'shutdown' | null }, never, never>((resume) => {
-      if (currentChildRef.current) {
-        try {
-          currentChildRef.current.kill('SIGTERM');
-        } catch {}
-        currentChildRef.current = null;
-      }
+      const cleanUp = () => {
+        if (currentChildRef.current) {
+          try {
+            currentChildRef.current.kill('SIGTERM');
+          } catch {}
+          currentChildRef.current = null;
+        }
+      };
 
-      const child = fork(process.argv[1], ['--child'], {
+      cleanUp();
+
+      const child = fork(process.argv[1], process.argv.slice(2), {
         execPath: process.execPath,
         stdio: 'inherit',
       });
@@ -172,13 +174,7 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
         child.off('message', handleMessage);
         child.off('exit', handleExit);
         child.off('error', handleError);
-
-        if (currentChildRef.current) {
-          try {
-            currentChildRef.current.kill('SIGTERM');
-          } catch {}
-          currentChildRef.current = null;
-        }
+        cleanUp();
       });
     });
   };

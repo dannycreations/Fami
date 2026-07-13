@@ -80,7 +80,7 @@ export const makeStoreClient = <A extends object, I, R>(
 
     const decode = Schema.decodeUnknown(Schema.partial(schema));
 
-    const rawData = yield* loadStore(filePath).pipe(Effect.catchAll(() => Effect.succeed({})));
+    const rawData = yield* loadStore(filePath).pipe(Effect.orElseSucceed(() => ({})));
     const validatedData = yield* decode(rawData).pipe(
       Effect.map((partial) => defaultsDeep<A>({}, partial, initialData)),
       Effect.catchAll((error) =>
@@ -89,7 +89,7 @@ export const makeStoreClient = <A extends object, I, R>(
           yield* Effect.logDebug(error);
 
           const partialDecode = Schema.decodeUnknown(Schema.partial(schema));
-          const partial = yield* partialDecode(rawData).pipe(Effect.catchAll(() => Effect.succeed({})));
+          const partial = yield* partialDecode(rawData).pipe(Effect.orElseSucceed(() => ({})));
 
           return defaultsDeep<A>({}, partial, initialData);
         }),
