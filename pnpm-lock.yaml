@@ -15,8 +15,8 @@ importers:
         specifier: ^17.4.2
         version: 17.4.2
       effect:
-        specifier: ^3.21.4
-        version: 3.21.4
+        specifier: ^3.22.0
+        version: 3.22.0
       got:
         specifier: 11.8.6
         version: 11.8.6
@@ -33,15 +33,15 @@ importers:
         specifier: ^5.3.0
         version: 5.3.0
       steamcommunity:
-        specifier: ^3.50.2
-        version: 3.50.2
+        specifier: ^3.50.3
+        version: 3.50.3
       user-agents:
-        specifier: ^2.1.119
-        version: 2.1.119
+        specifier: ^2.1.125
+        version: 2.1.125
     devDependencies:
       '@effect/tsgo':
-        specifier: ^0.19.0
-        version: 0.19.0
+        specifier: ^0.24.1
+        version: 0.24.1
       '@ianvs/prettier-plugin-sort-imports':
         specifier: ^4.7.1
         version: 4.7.1(prettier@3.9.5)
@@ -145,43 +145,43 @@ packages:
   '@doctormckay/user-agents@1.0.0':
     resolution: {integrity: sha512-F+sL1YmebZTY2CnjoR9BXFEULpq7y8dxyLx48LZVa0BSDseXdLG/DtPISfM1iNv1XKCeiBzVNfAT/MOQ69v1Zw==}
 
-  '@effect/tsgo-darwin-arm64@0.19.0':
-    resolution: {integrity: sha512-tieZTHXZlqOtm3YbGxclXNsyxILFtZqMC1fZEy2PAoEGKBHfwNc+r0gR3k3SU9dsSNj3KV8wLsXxfQr/VH1pAA==}
+  '@effect/tsgo-darwin-arm64@0.24.1':
+    resolution: {integrity: sha512-/Xyv6kbcf5+jHL2RjOq+F6v/lo92MXqtpYukr9deNPYGFsuXwMgpJhh5LBLo5sfGGiZZXZRqy465SqlgH8VmrA==}
     cpu: [arm64]
     os: [darwin]
 
-  '@effect/tsgo-darwin-x64@0.19.0':
-    resolution: {integrity: sha512-gTxeWR5xkL+UIdrTDcnGDj0dFPnk2AxvHzrA8j3U9OQZ5yHaFK4DA8W2hVxbu2lvGoHeRlyrArBf8YomKnNRdQ==}
+  '@effect/tsgo-darwin-x64@0.24.1':
+    resolution: {integrity: sha512-lKs6FgwibSdN1BNKs4OCvaNiqhd/zzwvnj0+ohFItiRj0cPvAXEuXQWtZx6tVk0uSTE4OoVbfCXB1hNpf5OiGQ==}
     cpu: [x64]
     os: [darwin]
 
-  '@effect/tsgo-linux-arm64@0.19.0':
-    resolution: {integrity: sha512-XEMv3PA8hNkSXAwAXYA5/FPYqV7eVrZS032P/3AuZTHr1jJTcesTK2ANfBHwwEKekmb7y3yBC7f73yhpXah4sg==}
+  '@effect/tsgo-linux-arm64@0.24.1':
+    resolution: {integrity: sha512-q5vOx+Lysx8tzbM9gFwOpO6P2rwRtsq625BRpsCs5W8+xcF35sxl+yZgLUYeZdgt2x7ZyuooMfnC9qky9su5aw==}
     cpu: [arm64]
     os: [linux]
 
-  '@effect/tsgo-linux-arm@0.19.0':
-    resolution: {integrity: sha512-SZlUqv74YZkBDd2czXmeOTPtWPOppWNFmwCN4k11s1K4Y/BfIpHmmv0TUHU5DcPe3IoHIJV1kxXrxhfxO1nQsQ==}
+  '@effect/tsgo-linux-arm@0.24.1':
+    resolution: {integrity: sha512-EqwZRmyH1X/g1yFlWxBxlGdSs88gKwAF+PYEuz4ZzXpZjgYx58fsgMw7JtAz8wL8qAJ7tyLyB1OK5qbkKBnL7w==}
     cpu: [arm]
     os: [linux]
 
-  '@effect/tsgo-linux-x64@0.19.0':
-    resolution: {integrity: sha512-T3KDEWgWuS3XAuJ5eUkEgeOVgC7pYK/8/hxASEtHJR1NDGPPk6gjg+jfcc0Y5O9P6mG4GL9LQmBIw/G1+GFRHA==}
+  '@effect/tsgo-linux-x64@0.24.1':
+    resolution: {integrity: sha512-SfqKYx5CBGqyWimVaDdjtIdbPg9KkBi3XlL3libPmRPLX74k4zSdFXqKzx0a6BhjYAhGnRcZLhZEdjoMt7E5Ow==}
     cpu: [x64]
     os: [linux]
 
-  '@effect/tsgo-win32-arm64@0.19.0':
-    resolution: {integrity: sha512-raoGQr2lNm0qO8sH3v4TlyUlTePm6c6y2FBIZQrUw8B4N/srHS5aVOUgWqnJ/WjuQKl1xCM5SoehuhRkGnoFzw==}
+  '@effect/tsgo-win32-arm64@0.24.1':
+    resolution: {integrity: sha512-FAJ6REixAqXAWtH8odFU6qjcHJVXdrbmsDczj5OREnZYdjh+4Yk5eN1r4ZplaJjDDLeck+Pmf2yB4aQpmqwC7Q==}
     cpu: [arm64]
     os: [win32]
 
-  '@effect/tsgo-win32-x64@0.19.0':
-    resolution: {integrity: sha512-KRWaWLXWIEm5mR/qPi9UJIRQdNs7uPfstiEv3bNR3qMVhgwndL2e5XYUoQOOYEK4MTjLM0GO+uknlHHRfI5K8A==}
+  '@effect/tsgo-win32-x64@0.24.1':
+    resolution: {integrity: sha512-Gpv559gMtlTo6Q14Cj0rhV47cIGHhYgC+VkMJKPBYRps5Uy7v4/yNNqLWu1QH1/4IQ6gFqXHPEGenQgUb4iiow==}
     cpu: [x64]
     os: [win32]
 
-  '@effect/tsgo@0.19.0':
-    resolution: {integrity: sha512-NDyG/RufHigI0bdvyggbr53J6c1GWcnNkm7rUwQbBDuRI1KRThFh2WtugMLL+i6wrRiMXJtgLHzh9lIMqy9gGA==}
+  '@effect/tsgo@0.24.1':
+    resolution: {integrity: sha512-ACAFRn2tk61Dy66sA2Kt5TFswmTdql/fhKjka6xU0rAyc5Uug9mgrdcxtSXt3j8MPNZee2Ulz5XzXNiXs6cqag==}
     hasBin: true
 
   '@esbuild/aix-ppc64@0.28.0':
@@ -770,8 +770,8 @@ packages:
   ecc-jsbn@0.1.2:
     resolution: {integrity: sha512-eh9O+hwRHNbG4BLTjEl3nw044CkGm5X6LoaCf7LPp7UU8Qrt47JYNi6nPX8xjW97TKGKm1ouctg0QSpZe9qrnw==}
 
-  effect@3.21.4:
-    resolution: {integrity: sha512-B89v/xSgPbl1J2Ai2u18jxq3odpFauU1rC6/eSs4FeNHi72kwKdJp12VGigvRV2lK+kRnx+OOz41XV8guZd4gQ==}
+  effect@3.22.0:
+    resolution: {integrity: sha512-jhYFe0zTlIRqYFrKTS+6luhmS/Tm0f+JLo0K9KUxvtFab1SUGEszQi2ehOP6QzAZvy831lDmTwwzvVDZSPNz3g==}
 
   end-of-stream@1.4.5:
     resolution: {integrity: sha512-ooEGc6HP26xXq/N+GCGOT0JKCLDGrq2bQUZrQ7gyrJiZANJ/8YDTxTpQBXGMn+WbIQXNVpyWymm7KYVICQnyOg==}
@@ -1289,8 +1289,8 @@ packages:
       lzma-native:
         optional: true
 
-  steamcommunity@3.50.2:
-    resolution: {integrity: sha512-Kyi1kmqsMVoR4jdkvJlUwaXV0QoUZS2L+qsrfmgzP32GKnFaGHQeVJr8MSxZVXZvboKgtd5PsJnsrA13xLRE5w==}
+  steamcommunity@3.50.3:
+    resolution: {integrity: sha512-xmOKzzQxTO059krcvII1IJr2Dby7hHZVSnl1NbQbemY4FVH6tEPYeJx8kHn5O8L+p+BSBPCT6TimapLWd3idyw==}
     engines: {node: '>=4.0.0'}
 
   steamid@1.1.3:
@@ -1352,8 +1352,8 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
-  user-agents@2.1.119:
-    resolution: {integrity: sha512-ISKwMM/Nd6fGf1wo3GUYoGkfssynQIRpkuURdrGfIbrGhODaFOopvpYdb7vVGDveAdiUmR1OJhAqVkmdGRHj7A==}
+  user-agents@2.1.125:
+    resolution: {integrity: sha512-qaH1qbkw4H4Jf0ch7WJBWEUS2aq66xkc9KZjIZZySfniYRJGXq9SElMORxRknZUUIwmcad/vWLiQesxbacQIBQ==}
     engines: {node: '>=18'}
 
   util-deprecate@1.0.2:
@@ -1483,36 +1483,36 @@ snapshots:
 
   '@doctormckay/user-agents@1.0.0': {}
 
-  '@effect/tsgo-darwin-arm64@0.19.0':
+  '@effect/tsgo-darwin-arm64@0.24.1':
     optional: true
 
-  '@effect/tsgo-darwin-x64@0.19.0':
+  '@effect/tsgo-darwin-x64@0.24.1':
     optional: true
 
-  '@effect/tsgo-linux-arm64@0.19.0':
+  '@effect/tsgo-linux-arm64@0.24.1':
     optional: true
 
-  '@effect/tsgo-linux-arm@0.19.0':
+  '@effect/tsgo-linux-arm@0.24.1':
     optional: true
 
-  '@effect/tsgo-linux-x64@0.19.0':
+  '@effect/tsgo-linux-x64@0.24.1':
     optional: true
 
-  '@effect/tsgo-win32-arm64@0.19.0':
+  '@effect/tsgo-win32-arm64@0.24.1':
     optional: true
 
-  '@effect/tsgo-win32-x64@0.19.0':
+  '@effect/tsgo-win32-x64@0.24.1':
     optional: true
 
-  '@effect/tsgo@0.19.0':
+  '@effect/tsgo@0.24.1':
     optionalDependencies:
-      '@effect/tsgo-darwin-arm64': 0.19.0
-      '@effect/tsgo-darwin-x64': 0.19.0
-      '@effect/tsgo-linux-arm': 0.19.0
-      '@effect/tsgo-linux-arm64': 0.19.0
-      '@effect/tsgo-linux-x64': 0.19.0
-      '@effect/tsgo-win32-arm64': 0.19.0
-      '@effect/tsgo-win32-x64': 0.19.0
+      '@effect/tsgo-darwin-arm64': 0.24.1
+      '@effect/tsgo-darwin-x64': 0.24.1
+      '@effect/tsgo-linux-arm': 0.24.1
+      '@effect/tsgo-linux-arm64': 0.24.1
+      '@effect/tsgo-linux-x64': 0.24.1
+      '@effect/tsgo-win32-arm64': 0.24.1
+      '@effect/tsgo-win32-x64': 0.24.1
 
   '@esbuild/aix-ppc64@0.28.0':
     optional: true
@@ -1982,7 +1982,7 @@ snapshots:
       jsbn: 0.1.1
       safer-buffer: 2.1.2
 
-  effect@3.21.4:
+  effect@3.22.0:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 3.23.2
@@ -2555,7 +2555,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  steamcommunity@3.50.2:
+  steamcommunity@3.50.3:
     dependencies:
       '@doctormckay/user-agents': 1.0.0
       async: 2.6.4
@@ -2641,7 +2641,7 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  user-agents@2.1.119: {}
+  user-agents@2.1.125: {}
 
   util-deprecate@1.0.2: {}
 

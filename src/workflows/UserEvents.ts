@@ -57,7 +57,7 @@ export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, stat
     if (hasFamily) {
       yield* Effect.promise(() => steamClient.user.getPersonas([...user.family!]));
 
-      yield* Effect.fork(
+      yield* Effect.forkDaemon(
         Effect.gen(function* () {
           while (true) {
             const s = yield* Ref.get(state.state);
