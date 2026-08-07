@@ -3,7 +3,7 @@ import { Effect, HashSet } from 'effect';
 
 import { catchAndLogUnlessTimeout } from '../core/errors';
 import { ConfigStoreTag, SessionStore, UserContext } from '../core/schemas';
-import { getFilteredGames, getUserPreferences } from '../core/utils';
+import { filterGames, getUserPreferences } from '../core/utils';
 import { SteamClientTag } from '../services/SteamService';
 
 import type SteamUser from 'steam-user';
@@ -31,7 +31,7 @@ export const collectOwnGames = (user: UserContext): Effect.Effect<void, never, S
       return;
     }
 
-    const { whitelist } = getUserPreferences(configData, user, sessionData.bannedGameIds);
+    const preferences = getUserPreferences(configData, user, sessionData.bannedGameIds);
 
     const options = {
       includeFreeSub: true,
@@ -48,14 +48,14 @@ export const collectOwnGames = (user: UserContext): Effect.Effect<void, never, S
       name: a.name || 'unknown',
     }));
 
-    const whitelistGames = Array.from(whitelist).map((appId) => ({
+    const whitelistGames = Array.from(preferences.whitelist).map((appId) => ({
       appId,
       name: 'unknown',
     }));
 
     const combinedGames = unionBy(ownedGames, whitelistGames, (game: { readonly appId: number }) => game.appId);
 
-    const filteredGames = getFilteredGames(combinedGames, configData, user, sessionData.bannedGameIds);
+    const filteredGames = filterGames(combinedGames, preferences);
 
     const newGames = filteredGames.filter((g) => !HashSet.has(sessionData.ownedGameIds, g.appId));
 

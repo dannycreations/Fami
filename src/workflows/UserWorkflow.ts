@@ -30,10 +30,13 @@ const cycleCollector = (user: UserContext, state: UserWorkflowState) => {
   ).pipe(Effect.repeat(Schedule.forever));
 };
 
+const COMMUNITY_CHECK_COOLDOWN_MS = 120_000;
+
 const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
   Effect.gen(function* () {
     const checkLoggedOn = whenLoggedOn(state);
     const nextIdleTimeRef = yield* Ref.make(0);
+    const lastCommunityCheckRef = yield* Ref.make(0);
 
     return yield* checkLoggedOn(
       Effect.gen(function* () {
@@ -49,21 +52,28 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
           return;
         }
 
-        if (!isEnabled && !isPlaying) {
-          const steamId = yield* steamClient.steamID;
-          const communityUser = steamId ? yield* steamClient.getCommunityUser(steamId) : null;
-          const hasValidOnlineState = communityUser && typeof communityUser.onlineState === 'string';
+        const now = yield* Effect.clock.pipe(Effect.flatMap((clock) => clock.currentTimeMillis));
 
-          if (hasValidOnlineState) {
-            yield* Ref.update(state.state, (s) => ({
-              ...s,
-              isEnabled: communityUser.onlineState === 'offline',
-            }));
+        if (!isEnabled && !isPlaying) {
+          const lastCommunityCheck = yield* Ref.get(lastCommunityCheckRef);
+
+          if (now - lastCommunityCheck >= COMMUNITY_CHECK_COOLDOWN_MS) {
+            yield* Ref.set(lastCommunityCheckRef, now);
+
+            const steamId = yield* steamClient.steamID;
+            const communityUser = steamId ? yield* steamClient.getCommunityUser(steamId) : null;
+            const hasValidOnlineState = communityUser && typeof communityUser.onlineState === 'string';
+
+            if (hasValidOnlineState) {
+              yield* Ref.update(state.state, (s) => ({
+                ...s,
+                isEnabled: communityUser.onlineState === 'offline',
+              }));
+            }
           }
         }
 
         const currentState = yield* Ref.get(state.state);
-        const now = yield* Effect.clock.pipe(Effect.flatMap((clock) => clock.currentTimeMillis));
 
         if (!currentState.isEnabled) {
           yield* Ref.set(nextIdleTimeRef, 0);

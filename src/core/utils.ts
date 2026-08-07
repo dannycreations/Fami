@@ -55,13 +55,6 @@ export const filterGames = (games: ReadonlyArray<GameContext>, options: FilterGa
   });
 };
 
-export const getFilteredGames = (
-  games: ReadonlyArray<GameContext>,
-  config: ConfigContext,
-  user: UserContext,
-  bannedIds: HashSet.HashSet<number> = HashSet.empty(),
-): ReadonlyArray<GameContext> => filterGames(games, getUserPreferences(config, user, bannedIds));
-
 export const parseAppIdsFromHtml = (html: string): ReadonlyArray<number> => {
   const ids = new Set<number>();
   const regex = /data-ds-appid="([\d,]+)"/g;
