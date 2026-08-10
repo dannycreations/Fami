@@ -3,12 +3,12 @@ import 'dotenv/config';
 import { join } from 'node:path';
 import { Effect, Layer } from 'effect';
 
-import { ConfigContext, ConfigStoreTag, INITIAL_CONFIG, RegistrationSemaphore } from './core/schemas';
-import { HttpClientLayer } from './structures/HttpClient';
-import { LoggerClientLayer } from './structures/LoggerClient';
-import { cycleUntilMidnight, runMainCycle } from './structures/RuntimeClient';
-import { StoreClientLayer } from './structures/StoreClient';
-import { runUserWorkflow } from './workflows/UserWorkflow';
+import { ConfigContext, ConfigStoreTag, INITIAL_CONFIG, RegistrationSemaphore } from './core/schemas.js';
+import { HttpClientLayer } from './structures/HttpClient.js';
+import { LoggerClientLayer } from './structures/LoggerClient.js';
+import { cycleUntilMidnight, runMainCycle } from './structures/RuntimeClient.js';
+import { StoreClientLayer } from './structures/StoreClient.js';
+import { runUserWorkflow } from './workflows/UserWorkflow.js';
 
 const program = Effect.gen(function* () {
   const configStore = yield* ConfigStoreTag;

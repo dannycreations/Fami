@@ -1,10 +1,10 @@
 import { unionBy } from '@vegapunk/utilities/common';
 import { Effect, HashSet } from 'effect';
 
-import { catchAndLogUnlessTimeout } from '../core/errors';
-import { ConfigStoreTag, SessionStore, UserContext } from '../core/schemas';
-import { filterGames, getUserPreferences } from '../core/utils';
-import { SteamClientTag } from '../services/SteamService';
+import { catchAndLogUnlessTimeout } from '../core/errors.js';
+import { ConfigStoreTag, SessionStore, UserContext } from '../core/schemas.js';
+import { filterGames, getUserPreferences } from '../core/utils.js';
+import { SteamClientTag } from '../services/SteamService.js';
 
 import type SteamUser from 'steam-user';
 

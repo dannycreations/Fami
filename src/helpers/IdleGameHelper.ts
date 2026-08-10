@@ -2,8 +2,8 @@ import { humanizeDuration } from '@vegapunk/utilities/time';
 import { Effect, Random } from 'effect';
 import SteamUser from 'steam-user';
 
-import { SessionStore } from '../core/schemas';
-import { SteamClientTag } from '../services/SteamService';
+import { SessionStore } from '../core/schemas.js';
+import { SteamClientTag } from '../services/SteamService.js';
 
 const MAX_IDLE_GAMES = 32;
 
@@ -38,8 +38,7 @@ export const startIdleGames = (username: string): Effect.Effect<number, never, S
     const selectedIndices = indices.slice(0, maxIdleTotal);
     idsToIdle = selectedIndices.map((idx) => allOwnedIds[idx].appId);
 
-    yield* steamClient.setPersona(SteamUser.EPersonaState.Online);
-    yield* steamClient.gamesPlayed(idsToIdle);
+    yield* steamClient.updatePersonaAndGames(SteamUser.EPersonaState.Online, idsToIdle);
 
     const durationString = humanizeDuration(idleMs, { units: ['h', 'm'], round: true });
     yield* Effect.logInfo(`${username} idling ${idsToIdle.length} games for ${durationString}`);

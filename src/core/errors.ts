@@ -1,7 +1,7 @@
 import { isErrorLike } from '@vegapunk/utilities/result';
 import { Data, Effect, Schedule } from 'effect';
 
-import { isTimeoutError } from '../structures/HttpClient';
+import { isTimeoutError } from '../structures/HttpClient.js';
 
 export interface SteamBaseError {
   readonly message: string;

@@ -4,10 +4,11 @@ import { Deferred, Effect, HashSet, Ref } from 'effect';
 import SteamTotp from 'steam-totp';
 import SteamUser from 'steam-user';
 
-import { ConfigStoreTag, SessionStore, UserContext } from '../core/schemas';
-import { getRateLimitSleep } from '../core/utils';
-import { SteamClient, SteamEvent } from '../services/SteamService';
-import { waitForConnection } from '../structures/HttpClient';
+import { ConfigStoreTag, SessionStore, UserContext } from '../core/schemas.js';
+import { getRateLimitSleep } from '../core/utils.js';
+import { waitForConnection } from '../structures/HttpClient.js';
+
+import type { SteamClient, SteamEvent } from '../services/SteamService.js';
 
 export const DEFAULT_SLEEP_DURATION = '10 seconds';
 export const USER_OFFLINE_STATE = [SteamUser.EPersonaState.Offline, SteamUser.EPersonaState.Invisible] as const;
@@ -34,7 +35,7 @@ export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, stat
     const steamIdString = steamId!.toString();
 
     yield* Effect.logInfo(chalk`{bold.yellow ${user.username} logged on!}`);
-    yield* steamClient.setPersona(SteamUser.EPersonaState.Invisible);
+    yield* steamClient.updatePersonaAndGames(SteamUser.EPersonaState.Invisible, []);
 
     yield* configStore.update((cfg) => ({
       ...cfg,
@@ -70,7 +71,6 @@ export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, stat
 
           yield* Effect.sleep('2 seconds');
 
-          let firstCheck = true;
           while (true) {
             const s = yield* Ref.get(state.state);
             const onlineFamilyMembers = Object.entries(s.family)
@@ -79,10 +79,6 @@ export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, stat
 
             if (onlineFamilyMembers.length === 0) {
               break;
-            }
-
-            if (firstCheck) {
-              firstCheck = false;
             }
 
             yield* Effect.sleep('5 seconds');
@@ -234,10 +230,6 @@ export const handleUserUpdate = (
     const steamId = yield* steamClient.steamID;
     const selfId = steamId?.toString();
     if (selfId === userId) {
-      return;
-    }
-
-    if (user.id === userId) {
       return;
     }
 

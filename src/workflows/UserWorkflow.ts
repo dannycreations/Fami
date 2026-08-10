@@ -3,15 +3,18 @@ import { chalk } from '@vegapunk/utilities';
 import { Cause, Deferred, Effect, Layer, Ref, Schedule, Stream } from 'effect';
 import SteamUser from 'steam-user';
 
-import { AuthError } from '../core/errors';
-import { ConfigStoreTag, INITIAL_SESSION, SessionContext, SessionStore, UserContext } from '../core/schemas';
-import { collectFreeGames } from '../helpers/FreeGameHelper';
-import { startIdleGames } from '../helpers/IdleGameHelper';
-import { collectOwnGames } from '../helpers/OwnGameHelper';
-import { SteamClient, SteamClientLayer, SteamClientTag } from '../services/SteamService';
-import { waitForConnection } from '../structures/HttpClient';
-import { StoreClientLayer } from '../structures/StoreClient';
-import { handleSteamEvent, USER_OFFLINE_STATE, UserWorkflowState } from './UserEvents';
+import { AuthError } from '../core/errors.js';
+import { ConfigStoreTag, INITIAL_SESSION, SessionContext, SessionStore, UserContext } from '../core/schemas.js';
+import { collectFreeGames, FreeGamesPageCacheLayer } from '../helpers/FreeGameHelper.js';
+import { startIdleGames } from '../helpers/IdleGameHelper.js';
+import { collectOwnGames } from '../helpers/OwnGameHelper.js';
+import { SteamClientLayer, SteamClientTag } from '../services/SteamService.js';
+import { waitForConnection } from '../structures/HttpClient.js';
+import { StoreClientLayer } from '../structures/StoreClient.js';
+import { handleSteamEvent, USER_OFFLINE_STATE } from './UserEvents.js';
+
+import type { SteamClient } from '../services/SteamService.js';
+import type { UserWorkflowState } from './UserEvents.js';
 
 const whenLoggedOn =
   (state: UserWorkflowState) =>
@@ -198,7 +201,11 @@ export const runUserWorkflow = (user: UserContext) =>
 
     yield* createUserSession(currentUser).pipe(
       Effect.provide(
-        Layer.mergeAll(SteamClientLayer(sessionDir), StoreClientLayer(SessionStore, sessionPath, SessionContext, INITIAL_SESSION, 600_000)),
+        Layer.mergeAll(
+          SteamClientLayer(sessionDir),
+          StoreClientLayer(SessionStore, sessionPath, SessionContext, INITIAL_SESSION, 600_000),
+          FreeGamesPageCacheLayer,
+        ),
       ),
       Effect.retry(
         Schedule.spaced('10 seconds').pipe(

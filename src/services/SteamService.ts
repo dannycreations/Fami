@@ -2,10 +2,10 @@ import { Cause, Context, Duration, Effect, Layer, Scope, Stream } from 'effect';
 import SteamUser from 'steam-user';
 import SteamCommunity from 'steamcommunity';
 
-import { isSteamErrorTimeout, RetryTimeoutPolicy, SteamError } from '../core/errors';
+import { isSteamErrorTimeout, RetryTimeoutPolicy, SteamError } from '../core/errors.js';
 
-import type CSteamUser from 'steamcommunity/classes/CSteamUser';
-import type { UserStatus } from '../core/schemas';
+import type CSteamUser from 'steamcommunity/classes/CSteamUser.js';
+import type { UserStatus } from '../core/schemas.js';
 
 export type SteamEvent =
   | {
@@ -42,9 +42,6 @@ export interface SteamClient {
   readonly events: Stream.Stream<SteamEvent, never>;
   readonly steamID: Effect.Effect<NonNullable<SteamUser['steamID']> | null>;
   readonly logOn: (details: Parameters<SteamUser['logOn']>[0]) => Effect.Effect<void, SteamError | Cause.TimeoutException>;
-  readonly logOff: Effect.Effect<void>;
-  readonly setPersona: (state: SteamUser.EPersonaState) => Effect.Effect<void>;
-  readonly gamesPlayed: (appIds: ReadonlyArray<number>) => Effect.Effect<void>;
   readonly getCommunityUser: (id: NonNullable<SteamUser['steamID']>) => Effect.Effect<CSteamUser | null>;
   readonly getUserOwnedApps: (
     id: NonNullable<SteamUser['steamID']>,
@@ -189,9 +186,6 @@ const createSteamClient = (dataDirectory: string): Effect.Effect<SteamClient, ne
 
           return Effect.sync(cleanup);
         }).pipe(Effect.timeout('1 minute')),
-      logOff: Effect.sync(() => user.logOff()),
-      setPersona: (state) => Effect.sync(() => user.setPersona(state)),
-      gamesPlayed: (appIds) => Effect.sync(() => user.gamesPlayed(appIds as number[])),
       getCommunityUser: (id) =>
         Effect.async<CSteamUser | null>((resume) => {
           community.getSteamUser(id, (error, user) => {

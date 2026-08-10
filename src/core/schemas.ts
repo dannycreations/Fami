@@ -1,6 +1,6 @@
 import { Context, Effect, HashSet, Schema } from 'effect';
 
-import type { StoreClient } from '../structures/StoreClient';
+import type { StoreClient } from '../structures/StoreClient.js';
 
 export class RegistrationSemaphore extends Context.Tag('RegistrationSemaphore')<RegistrationSemaphore, Effect.Semaphore>() {}
 

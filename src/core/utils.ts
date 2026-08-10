@@ -1,6 +1,6 @@
 import { Data, HashSet } from 'effect';
 
-import type { ConfigContext, GameContext, UserContext } from './schemas';
+import type { ConfigContext, GameContext, UserContext } from './schemas.js';
 
 export const RATE_LIMIT_MIN_MS = 1_800_000;
 export const EXCLUDED_GAME_NAME_PATTERN = /\b(?:Beta|Demo|P(?:laytest|TS)|Public (?:Beta|Test)|Test|Unstable)\b/i;

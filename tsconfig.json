@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/Effect-TS/tsgo/refs/heads/main/schema.json",
-  "extends": ["@sapphire/ts-config", "@sapphire/ts-config/extra-strict", "@sapphire/ts-config/decorators"],
+  "extends": ["@sapphire/ts-config", "@sapphire/ts-config/extra-strict", "@sapphire/ts-config/decorators", "@sapphire/ts-config/verbatim"],
   "compilerOptions": {
     "plugins": [
       {
@@ -15,9 +15,7 @@
     "incremental": false,
     "skipLibCheck": true,
     "stripInternal": true,
-    "removeComments": true,
-    "target": "esnext",
-    "moduleResolution": "nodenext"
+    "removeComments": true
   },
   "include": ["src"]
 }

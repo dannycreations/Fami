@@ -1,10 +1,13 @@
 import { lookup } from 'node:dns/promises';
+import { createRequire } from 'node:module';
 import { isErrorLike } from '@vegapunk/utilities/result';
 import { Context, Data, Effect, Layer, Schedule } from 'effect';
-import got from 'got';
 import UserAgent from 'user-agents';
 
 import type { CancelableRequest, Got, Options, Response } from 'got';
+
+const require = createRequire(import.meta.url);
+const got = require('got') as Got;
 
 export class HttpClientError extends Data.TaggedError('HttpClientError')<{
   readonly message: string;

@@ -1,14 +1,19 @@
 import { isObjectLike } from '@vegapunk/utilities/common';
-import { Effect, HashSet } from 'effect';
+import { Cache, Context, Effect, HashSet, Layer } from 'effect';
 import SteamUser from 'steam-user';
 
-import { catchAndLogUnlessTimeout, FreeGameError, RetryTimeoutPolicy } from '../core/errors';
-import { ConfigStoreTag, GameContext, RegistrationSemaphore, SessionStore, UserContext } from '../core/schemas';
-import { filterGames, getRateLimitSleep, getUserPreferences, parseAppIdsFromHtml } from '../core/utils';
-import { SteamClientTag } from '../services/SteamService';
-import { HttpClientTag, request } from '../structures/HttpClient';
+import { catchAndLogUnlessTimeout, FreeGameError, RetryTimeoutPolicy } from '../core/errors.js';
+import { ConfigStoreTag, GameContext, RegistrationSemaphore, SessionStore, UserContext } from '../core/schemas.js';
+import { filterGames, getRateLimitSleep, getUserPreferences, parseAppIdsFromHtml } from '../core/utils.js';
+import { SteamClientTag } from '../services/SteamService.js';
+import { HttpClientLayer, HttpClientTag, request } from '../structures/HttpClient.js';
 
 const MAX_FREE_GAMES_BATCH = 50;
+
+export class FreeGamesPageCacheTag extends Context.Tag('@helpers/FreeGamesPageCache')<
+  FreeGamesPageCacheTag,
+  Cache.Cache<number, string, FreeGameError>
+>() {}
 
 const fetchSearchPage = (page: number): Effect.Effect<string, FreeGameError, HttpClientTag> =>
   request<string>({
@@ -27,6 +32,11 @@ const fetchSearchPage = (page: number): Effect.Effect<string, FreeGameError, Htt
     Effect.retry(RetryTimeoutPolicy),
     Effect.map((res) => res.body),
   );
+
+export const FreeGamesPageCacheLayer = Layer.scoped(
+  FreeGamesPageCacheTag,
+  Cache.make({ capacity: 100, timeToLive: '2 minutes', lookup: fetchSearchPage }),
+).pipe(Layer.provide(HttpClientLayer));
 
 export const registerFreeGames = (
   user: UserContext,
@@ -90,7 +100,7 @@ export const registerFreeGames = (
 
 export const collectFreeGames = (
   user: UserContext,
-): Effect.Effect<void, never, ConfigStoreTag | SessionStore | SteamClientTag | HttpClientTag | RegistrationSemaphore> =>
+): Effect.Effect<void, never, ConfigStoreTag | SessionStore | SteamClientTag | RegistrationSemaphore | FreeGamesPageCacheTag> =>
   Effect.gen(function* () {
     const configStore = yield* ConfigStoreTag;
     const sessionStore = yield* SessionStore;
@@ -118,7 +128,8 @@ export const collectFreeGames = (
     const bannedAndOwned = HashSet.union(sessionData.bannedGameIds, sessionData.ownedGameIds);
     const { whitelist, blacklist } = getUserPreferences(configData, user, bannedAndOwned);
 
-    const html = yield* fetchSearchPage(sessionData.lastPage).pipe(catchAndLogUnlessTimeout(`${user.username} FreeGame collection failed`, ''));
+    const pageCache = yield* FreeGamesPageCacheTag;
+    const html = yield* pageCache.get(sessionData.lastPage).pipe(catchAndLogUnlessTimeout(`${user.username} FreeGame collection failed`, ''));
 
     const isEmptyHtml = html.length === 0;
 
@@ -191,17 +202,14 @@ export const collectFreeGames = (
       gamesToFilter.push(game);
     }
 
-    const filteredGames = filterGames(gamesToFilter, { whitelist, blacklist });
+    const filteredGames = filterGames(gamesToFilter, { whitelist, blacklist: HashSet.empty() });
 
-    if (filteredGames.length > 0) {
-      yield* sessionStore.update((data) => ({
-        ...data,
-        freeGameIds: HashSet.fromIterable([...data.freeGameIds, ...filteredGames.map((g) => g.appId)]),
-        freeGameList: [...data.freeGameList, ...filteredGames],
-      }));
-    }
-
-    yield* sessionStore.update((data) => ({ ...data, lastPage: data.lastPage + 1 }));
+    yield* sessionStore.update((data) => ({
+      ...data,
+      freeGameIds: filteredGames.length > 0 ? HashSet.fromIterable([...data.freeGameIds, ...filteredGames.map((g) => g.appId)]) : data.freeGameIds,
+      freeGameList: filteredGames.length > 0 ? [...data.freeGameList, ...filteredGames] : data.freeGameList,
+      lastPage: data.lastPage + 1,
+    }));
 
     yield* registerFreeGames(user);
   });
