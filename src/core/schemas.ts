@@ -61,7 +61,6 @@ export const SessionContext = Schema.Struct({
   freeGameList: Schema.Array(GameContext),
   forceRegister: Schema.Boolean,
   ownedGameList: Schema.Array(GameContext),
-  ownedGameIds: Schema.HashSet(Schema.Number),
   bannedGameIds: Schema.HashSet(Schema.Number),
 });
 
@@ -76,9 +75,11 @@ export const INITIAL_SESSION: SessionContext = {
   freeGameList: [],
   forceRegister: false,
   ownedGameList: [],
-  ownedGameIds: HashSet.empty(),
   bannedGameIds: HashSet.empty(),
 };
+
+export const getOwnedGameIds = (session: SessionContext): HashSet.HashSet<number> =>
+  HashSet.fromIterable(session.ownedGameList.map((game) => game.appId));
 
 export class SessionStore extends Context.Tag('@schemas/SessionStore')<SessionStore, StoreClient<SessionContext>>() {}
 

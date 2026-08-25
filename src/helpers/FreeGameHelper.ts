@@ -3,8 +3,8 @@ import { Cache, Context, Effect, HashSet, Layer } from 'effect';
 import SteamUser from 'steam-user';
 
 import { catchAndLogUnlessTimeout, FreeGameError, RetryTimeoutPolicy } from '../core/errors.js';
-import { ConfigStoreTag, GameContext, RegistrationSemaphore, SessionStore, UserContext } from '../core/schemas.js';
-import { filterGames, getRateLimitSleep, getUserPreferences, parseAppIdsFromHtml } from '../core/utils.js';
+import { ConfigStoreTag, GameContext, getOwnedGameIds, RegistrationSemaphore, SessionStore, UserContext } from '../core/schemas.js';
+import { filterGames, getRateLimitSleep, getUserPreferences, nowMillis, parseAppIdsFromHtml } from '../core/utils.js';
 import { SteamClientTag } from '../services/SteamService.js';
 import { HttpClientLayer, HttpClientTag, request } from '../structures/HttpClient.js';
 
@@ -114,7 +114,7 @@ export const collectFreeGames = (
 
     const sessionData = yield* sessionStore.get;
 
-    const now = yield* Effect.clock.pipe(Effect.flatMap((clock) => clock.currentTimeMillis));
+    const now = yield* nowMillis;
     const isCooldown = now - sessionData.lastFreeGamesScan < 60_000;
 
     if (isCooldown) {
@@ -125,7 +125,7 @@ export const collectFreeGames = (
 
     const steamClient = yield* SteamClientTag;
 
-    const bannedAndOwned = HashSet.union(sessionData.bannedGameIds, sessionData.ownedGameIds);
+    const bannedAndOwned = HashSet.union(sessionData.bannedGameIds, getOwnedGameIds(sessionData));
     const { whitelist, blacklist } = getUserPreferences(configData, user, bannedAndOwned);
 
     const pageCache = yield* FreeGamesPageCacheTag;

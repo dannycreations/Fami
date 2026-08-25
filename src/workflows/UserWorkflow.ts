@@ -5,13 +5,14 @@ import SteamUser from 'steam-user';
 
 import { AuthError } from '../core/errors.js';
 import { ConfigStoreTag, INITIAL_SESSION, SessionContext, SessionStore, UserContext } from '../core/schemas.js';
+import { nowMillis } from '../core/utils.js';
 import { collectFreeGames, FreeGamesPageCacheLayer } from '../helpers/FreeGameHelper.js';
 import { startIdleGames } from '../helpers/IdleGameHelper.js';
 import { collectOwnGames } from '../helpers/OwnGameHelper.js';
 import { SteamClientLayer, SteamClientTag } from '../services/SteamService.js';
 import { waitForConnection } from '../structures/HttpClient.js';
 import { StoreClientLayer } from '../structures/StoreClient.js';
-import { handleSteamEvent, USER_OFFLINE_STATE } from './UserEvents.js';
+import { handleSteamEvent, isFamilyOnline } from './UserEvents.js';
 
 import type { SteamClient } from '../services/SteamService.js';
 import type { UserWorkflowState } from './UserEvents.js';
@@ -45,9 +46,7 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
       Effect.gen(function* () {
         const { isPlaying, family, isEnabled } = yield* Ref.get(state.state);
 
-        const hasFamilyOnline = Object.values(family).some((status) => !(USER_OFFLINE_STATE as readonly number[]).includes(status));
-
-        if (hasFamilyOnline) {
+        if (isFamilyOnline(family)) {
           yield* Ref.set(nextIdleTimeRef, 0);
           if (isPlaying) {
             yield* state.setGamesPlayed([]);
@@ -55,7 +54,7 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
           return;
         }
 
-        const now = yield* Effect.clock.pipe(Effect.flatMap((clock) => clock.currentTimeMillis));
+        const now = yield* nowMillis;
 
         if (!isEnabled && !isPlaying) {
           const lastCommunityCheck = yield* Ref.get(lastCommunityCheckRef);
@@ -170,8 +169,7 @@ const createUserSession = (user: UserContext) =>
       yield* Deferred.await(state.loggedOn);
       yield* Effect.sleep('1 minute');
       const s = yield* Ref.get(state.state);
-      const hasFamilyOnline = Object.values(s.family).some((status) => !(USER_OFFLINE_STATE as readonly number[]).includes(status));
-      const isNotPlayingWhileEnabled = s.isEnabled && !s.isPlaying && !hasFamilyOnline;
+      const isNotPlayingWhileEnabled = s.isEnabled && !s.isPlaying && !isFamilyOnline(s.family);
 
       if (isNotPlayingWhileEnabled) {
         yield* Effect.logInfo(chalk`${user.username} not playing games after 1 minute of login`);

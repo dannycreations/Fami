@@ -182,6 +182,7 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
   const parentMain = Effect.gen(function* () {
     const restartTimesRef = yield* Ref.make<readonly number[]>([]);
     const currentChildRef = { current: null as ChildProcess | null };
+    let cooldownHours = 1;
 
     let isShuttingDown = false;
     const cleanUp = (signal: NodeJS.Signals) => {
@@ -225,6 +226,7 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
 
         if (action === 'restart' || code === 0) {
           yield* Ref.set(restartTimesRef, []);
+          cooldownHours = 1;
           continue;
         }
 
@@ -234,8 +236,13 @@ export const runMainCycle = <A, E, R>(program: Effect.Effect<A, E, R>, options: 
         yield* Ref.set(restartTimesRef, nextRestarts);
 
         if (nextRestarts.length >= maxRestarts) {
-          yield* Effect.logFatal(chalk`{bold.red System crashed too many times. Shutting down...}`);
-          process.exit(1);
+          yield* Effect.logWarning(
+            chalk`{bold.red System crashed ${nextRestarts.length} times. Cooling down for ${cooldownHours}h before restarting...}`,
+          );
+          yield* Effect.sleep(`${cooldownHours} hours`);
+          yield* Ref.set(restartTimesRef, []);
+          cooldownHours = Math.min(cooldownHours * 2, 24);
+          continue;
         }
 
         yield* Effect.logInfo(chalk`{bold.yellow Restarting in ${restartDelayMs / 1000}s (${nextRestarts.length}/${maxRestarts})...}`);

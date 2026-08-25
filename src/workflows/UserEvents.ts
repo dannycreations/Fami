@@ -10,8 +10,12 @@ import { waitForConnection } from '../structures/HttpClient.js';
 
 import type { SteamClient, SteamEvent } from '../services/SteamService.js';
 
-export const DEFAULT_SLEEP_DURATION = '10 seconds';
-export const USER_OFFLINE_STATE = [SteamUser.EPersonaState.Offline, SteamUser.EPersonaState.Invisible] as const;
+const DEFAULT_SLEEP_DURATION = '10 seconds';
+
+export const USER_OFFLINE_STATE: readonly number[] = [SteamUser.EPersonaState.Offline, SteamUser.EPersonaState.Invisible];
+
+export const isFamilyOnline = (family: Record<string, number>): boolean =>
+  Object.values(family).some((status) => !USER_OFFLINE_STATE.includes(status));
 
 export interface InternalState {
   readonly isEnabled: boolean;
@@ -73,11 +77,7 @@ export const handleLoggedOn = (user: UserContext, steamClient: SteamClient, stat
 
           while (true) {
             const s = yield* Ref.get(state.state);
-            const onlineFamilyMembers = Object.entries(s.family)
-              .filter(([_, status]) => !(USER_OFFLINE_STATE as readonly number[]).includes(status))
-              .map(([id]) => id);
-
-            if (onlineFamilyMembers.length === 0) {
+            if (!isFamilyOnline(s.family)) {
               break;
             }
 
@@ -234,7 +234,7 @@ export const handleUserUpdate = (
     }
 
     const userPersona = personaState ?? SteamUser.EPersonaState.Offline;
-    const isUserOffline = (USER_OFFLINE_STATE as readonly number[]).includes(userPersona);
+    const isUserOffline = USER_OFFLINE_STATE.includes(userPersona);
 
     const nextFamilyState = { ...family, [userId]: userPersona };
     yield* Ref.update(state.state, (s) => ({ ...s, family: nextFamilyState }));

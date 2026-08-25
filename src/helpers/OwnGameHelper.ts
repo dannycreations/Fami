@@ -2,8 +2,8 @@ import { unionBy } from '@vegapunk/utilities/common';
 import { Effect, HashSet } from 'effect';
 
 import { catchAndLogUnlessTimeout } from '../core/errors.js';
-import { ConfigStoreTag, SessionStore, UserContext } from '../core/schemas.js';
-import { filterGames, getUserPreferences } from '../core/utils.js';
+import { ConfigStoreTag, getOwnedGameIds, SessionStore, UserContext } from '../core/schemas.js';
+import { filterGames, getUserPreferences, nowMillis } from '../core/utils.js';
 import { SteamClientTag } from '../services/SteamService.js';
 
 import type SteamUser from 'steam-user';
@@ -24,7 +24,7 @@ export const collectOwnGames = (user: UserContext): Effect.Effect<void, never, S
     const configData = yield* configStore.get;
     const sessionData = yield* sessionStore.get;
 
-    const now = yield* Effect.clock.pipe(Effect.flatMap((clock) => clock.currentTimeMillis));
+    const now = yield* nowMillis;
     const isCooldown = now - sessionData.lastOwnGamesScan < configData.refreshGames;
 
     if (isCooldown) {
@@ -57,7 +57,9 @@ export const collectOwnGames = (user: UserContext): Effect.Effect<void, never, S
 
     const filteredGames = filterGames(combinedGames, preferences);
 
-    const newGames = filteredGames.filter((g) => !HashSet.has(sessionData.ownedGameIds, g.appId));
+    const ownedGameIds = getOwnedGameIds(sessionData);
+
+    const newGames = filteredGames.filter((g) => !HashSet.has(ownedGameIds, g.appId));
 
     const hasNewGames = newGames.length > 0;
 
@@ -68,7 +70,6 @@ export const collectOwnGames = (user: UserContext): Effect.Effect<void, never, S
     yield* sessionStore.update((data) => ({
       ...data,
       ownedGameList: [...data.ownedGameList, ...newGames],
-      ownedGameIds: HashSet.fromIterable([...data.ownedGameIds, ...newGames.map((g) => g.appId)]),
       lastOwnGamesScan: now,
     }));
   });
