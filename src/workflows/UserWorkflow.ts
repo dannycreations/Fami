@@ -34,6 +34,7 @@ const cycleCollector = (user: UserContext, state: UserWorkflowState) => {
   ).pipe(Effect.repeat(Schedule.forever));
 };
 
+const FAMILY_OFFLINE_GRACE_MS = 60_000;
 const COMMUNITY_CHECK_COOLDOWN_MS = 120_000;
 
 const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWorkflowState) =>
@@ -45,16 +46,15 @@ const cycleIdler = (user: UserContext, steamClient: SteamClient, state: UserWork
     return yield* checkLoggedOn(
       Effect.gen(function* () {
         const { isPlaying, family, isEnabled } = yield* Ref.get(state.state);
+        const now = yield* nowMillis;
 
         if (isFamilyOnline(family)) {
-          yield* Ref.set(nextIdleTimeRef, 0);
+          yield* Ref.set(nextIdleTimeRef, now + FAMILY_OFFLINE_GRACE_MS);
           if (isPlaying) {
             yield* state.setGamesPlayed([]);
           }
           return;
         }
-
-        const now = yield* nowMillis;
 
         if (!isEnabled && !isPlaying) {
           const lastCommunityCheck = yield* Ref.get(lastCommunityCheckRef);
